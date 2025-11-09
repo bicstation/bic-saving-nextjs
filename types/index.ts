@@ -1,5 +1,5 @@
 // /types/index.ts (updated_at 追記修正版)
-
+// fdfds
 // --- 1. 商品関連の型 ---
 
 // ★APIから返される生データ用の型 (APIのキー名に合わせる)
