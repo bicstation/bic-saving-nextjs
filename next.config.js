@@ -1,5 +1,6 @@
 // next.config.js
 // fdsfdsfds
+// Next.js の設定ファイル
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
