@@ -1,4 +1,5 @@
 // next.config.js
+// fdsfdsfds
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
