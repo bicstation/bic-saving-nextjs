@@ -1,0 +1,336 @@
+/* /app/globals.css */
+
+/* CSS Variables */
+:root {
+    --color-primary: #0070f3;
+    --color-secondary: #ff4081;
+    --color-text: #333;
+    --color-bg: #f5f5f5;
+    --color-border: #ddd;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --max-width: 1200px;
+}
+
+/* Base Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* --- Layout Component --- */
+.container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: var(--spacing-md);
+}
+
+.page-layout { 
+    display: flex;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg) 0;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 0;
+}
+
+/* --- Header / Navigation --- */
+.header {
+    background-color: white;
+    /* ★修正: 上下のパディングを減らして高さをタイトに */
+    padding: var(--spacing-sm) 0; 
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ヘッダーコンテンツを横並びにする */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ヘッダー左側要素の横並び */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+/* ヘッダー右側要素の横並び */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.site-title {
+    color: var(--color-text);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+/* --- Aside / Category List --- */
+.sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    padding: var(--spacing-md);
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    align-self: flex-start; /* 高さはコンテンツ量に依存 */
+}
+
+/* サイドバーの見出しにマージンを追加 */
+.sidebar h3 {
+    font-size: 1.1rem;
+    color: #444;
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* 最初の見出しのトップマージンをリセット */
+.sidebar h3:first-of-type {
+    margin-top: 0;
+}
+
+/* サイドバーのリストに間隔を追加 */
+.sidebar ul {
+    margin-bottom: var(--spacing-md);
+}
+
+.category-link {
+    /* display: block; ← 開閉ボタンと並べるために Flexbox のアイテムにする */
+    padding: 6px 0; /* リンクの上下パディングを調整 */
+    color: var(--color-text);
+    border-bottom: none; /* 下線を削除 */
+    transition: color 0.2s;
+    /* ★追加: Flexアイテムとして領域を埋める */
+    flex-grow: 1; 
+    white-space: nowrap; /* ★追加: テキストの折り返しを防ぐ */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.category-link:hover {
+    color: var(--color-primary);
+}
+
+/* --- サイドバー アコーディオン スタイル --- */
+.category-item {
+    margin-bottom: 5px;
+}
+
+.category-header {
+    display: flex; /* ★修正: Flexboxを適用 */
+    justify-content: space-between; /* ★修正: アイコンを右端に寄せる */
+    align-items: center;
+    padding: 3px 0;
+}
+
+.category-header:hover .category-link {
+    color: var(--color-primary);
+}
+
+/* .category-link の Flexbox プロパティは上に移動 */
+
+.toggle-button { /* ★追加: 開閉アイコン用のボタンスタイル */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: var(--spacing-sm);
+    color: #666;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px; 
+    transition: background-color 0.2s, color 0.2s;
+    /* ★追加: 折り返しを防ぐ */
+    flex-shrink: 0; 
+}
+
+.toggle-button:hover {
+    background-color: var(--color-border);
+    color: var(--color-primary);
+}
+
+/* 子カテゴリリスト */
+.sub-category-list {
+    margin: 5px 0 5px var(--spacing-md); /* インデント */
+    border-left: 2px solid var(--color-border);
+    padding-left: var(--spacing-sm);
+}
+
+.sub-category-item a {
+    display: block;
+    font-size: 0.9rem;
+    padding: 3px 0;
+    color: var(--color-text);
+}
+
+.sub-category-item a:hover {
+    color: var(--color-primary);
+}
+
+.sub-category-item .count {
+    font-size: 0.8rem;
+    color: #999;
+    margin-left: 5px;
+}
+/* --- Product List / Grid Layout --- */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr); 
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-lg); 
+}
+
+/* --- Product Card Component --- */
+.product-card {
+    background-color: white;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: var(--spacing-sm); 
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s, transform 0.2s;
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+}
+
+.product-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.product-image {
+    width: 100%; 
+    height: 110px; 
+    object-fit: contain; 
+    border-radius: 4px;
+    margin: 0 auto var(--spacing-sm); 
+}
+
+.product-info {
+    flex-grow: 1; 
+    padding: 0 var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.product-name {
+    font-size: 0.85rem;
+    margin: 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-price {
+    color: var(--color-secondary);
+    font-weight: 700;
+    margin-top: 0;
+    font-size: 1.0rem;
+}
+
+/* --- Pagination Component --- */
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+    flex-wrap: wrap;
+    border-top: 1px dashed var(--color-border); 
+    padding-top: var(--spacing-md);
+}
+
+.page-number {
+    margin: 0 4px;
+    cursor: pointer;
+    font-weight: normal;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    color: var(--color-text);
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.page-number:hover {
+    background-color: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.page-number.active {
+    font-weight: bold;
+    background-color: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* --- Footer Component (横3列フッターの実現) --- */
+.footer {
+    background-color: white;
+    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-lg) 0;
+    margin-top: var(--spacing-lg);
+}
+
+/* footer-contentをFlexboxにして横並びにする */
+.footer-content {
+    display: flex;
+    justify-content: space-around; 
+    text-align: left;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap; 
+    max-width: var(--max-width); 
+    margin: 0 auto;
+}
+
+/* 各セクションが均等な幅を持つように */
+.footer-section {
+    flex: 1;
+    min-width: 180px; 
+}
+
+.footer-section h4 {
+    font-size: 1rem;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--color-primary);
+    padding-bottom: 2px;
+}
+
+/* コピーライトの調整 */
+.copyright {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #666;
+    padding: var(--spacing-sm) 0;
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-md);
+}
