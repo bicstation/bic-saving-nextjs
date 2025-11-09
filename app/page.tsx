@@ -1,108 +1,164 @@
-// /app/page.tsx (最終クリーンアップ版)
+// /app/page.tsx (SEO対策 最終完全版)
 
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { Suspense } from "react";
+import type { Metadata } from "next"; // メタデータ生成のためにインポート
 
-// 拡張子を削除することで、Next.jsが自動的に .tsx を解決する
+// コンポーネントのインポート
 import Pagination from "./components/Pagination";
 import CategorySidebar from "./components/CategorySidebar";
 import ProductCard from "./components/ProductCard";
 
-// /lib/data.ts に戻り値の型が定義されたため、型アサーションは不要になりました
+// データ取得関数のインポート
 import { getProducts, getCategories } from "@/lib/data"; 
 
-// すべての型を外部ファイルからインポート
-import { Product, ProductData, Category, HomePageProps } from "@/types/index"; 
+// 型定義のインポート
+import { HomePageProps, Product } from "@/types/index"; 
 
-// --- コンポーネント本体 (型を適用) ---
+// --- 1. メタデータの生成 (SEO対策) ---
+export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
+    
+    // Canonical URLを決定するロジック
+    // フィルタリングやページネーションがあっても、ルートURL（/）を正規とする
+    const canonicalUrl = 'https://your-production-domain.com/'; // ★★★ 本番URLに修正が必要 ★★★
 
+    return {
+        // title, description は layout.tsx のテンプレートが適用される
+        title: 'トップページ', 
+        description: 'BIC-SAVING ECサイトのトップページです。新着商品、人気商品を多数ご覧いただけます。',
+        
+        // ★★★ Canonical URLの設定 ★★★
+        alternates: {
+            canonical: canonicalUrl,
+        },
+    };
+}
+
+// --- 2. ページコンポーネント本体 (Server Component) ---
 // HomePageProps を使用して searchParams に型を適用
 export default async function HomePage({ searchParams }: HomePageProps) {
-    // searchParamsを直接デストラクチャリング
+    
+    // 1. クエリパラメータからページ番号を取得
     const { page } = searchParams || {};
 
-    // 取り出した page の値を処理
     const pageParam = (Array.isArray(page) ? page[0] : page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
     
     const pageSize = 12;
 
-    // API通信を実行
-    // ★★★ 修正箇所: 型アサーション (as Promise<...>) を削除 ★★★
+    // 2. API通信を実行
+    // トップページはカテゴリなし、クエリなしで商品を取得
     const [productData, categories] = await Promise.all([
-        getProducts({ page: currentPage, limit: pageSize }), 
+        getProducts({ 
+            page: currentPage, 
+            limit: pageSize,
+            categoryId: null, // カテゴリ指定なし
+            query: null       // キーワード検索なし
+        }), 
         getCategories(),
     ]);
 
-    // ★★★ 修正箇所: 型アサーション (as ... ) を削除 ★★★
-    // /lib/data.ts の戻り値の型定義により、productDataとcategoriesは適切な型を持つ
     const { products, totalPages } = productData;
     const finalCategories = categories;
 
+    // ★★★ 構造化データ（Organization/WebSiteスキーマ）の定義 ★★★
+    const siteSchema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                // WebSiteスキーマ: サイト内検索機能のヒントをGoogleに与える
+                "@type": "WebSite",
+                "name": "BIC-SAVING Next.js ECサイト",
+                "url": "https://your-production-domain.com", // ★本番URLに修正
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": "https://your-production-domain.com/?query={search_term_string}", // ★本番URLに修正
+                    "query-input": "required name=search_term_string"
+                }
+            },
+            {
+                // Organizationスキーマ: サイトの運営元情報
+                "@type": "Organization",
+                "name": "BIC-SAVING",
+                "url": "https://your-production-domain.com", // ★本番URLに修正
+                "logo": "https://your-production-domain.com/og-image.png", // ★本番URLに修正
+                "sameAs": [] // ソーシャルメディアURLがあればここに追加
+            }
+        ]
+    };
+    // -----------------------------------------------------------------
+
 
     return (
-        <main className="page-layout">
-            {/* 2. Sidebar */}
-            <CategorySidebar categories={finalCategories} />
+        <>
+            {/* ★★★ JSON-LD 構造化データの挿入 ★★★ */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
+            />
+            
+            <main className="page-layout">
+                {/* 2. Sidebar */}
+                <CategorySidebar categories={finalCategories} />
 
-            {/* 3. Main Content (商品リストとページネーション) */}
-            <section className="main-content">
-                {/* パンくずリスト (トップページでは「ホーム」のみ) */}
-                <div className="breadcrumb">
-                    <Link href="/">ホーム</Link>
-                </div>
-
-                <h2>🛒 ピックアップ商品 (Page {currentPage})</h2>
-
-                {/* デバッグ情報: 現在のページ番号を表示 */}
-                <div
-                    style={{
-                        padding: "10px",
-                        backgroundColor: "#fffbe5",
-                        border: "1px solid #ffe680",
-                        marginBottom: "20px",
-                    }}
-                >
-                    <strong>デバッグ情報:</strong> URLから認識されたページ番号は
-                    <span style={{ color: "red", fontWeight: "bold" }}>
-                        {" "}
-                        {currentPage}{" "}
-                    </span>{" "}
-                    です。
-                </div>
-                
-                {/* 商品リスト (グリッド表示) */}
-                {products.length === 0 ? (
-                    <p>商品が見つかりませんでした。</p>
-                ) : (
-                    <div className="product-grid">
-                        {products.map((product) => {
-                            // TypeScriptによって product が Product 型であると認識される
-                            // ★★★ この防御コードは、APIレスポンスの信頼性が低い場合に残すことができます ★★★
-                            if (
-                                !product ||
-                                !product.id ||
-                                !product.product_name ||
-                                !product.price
-                            ) {
-                                return null;
-                            }
-
-                            // product は Product 型として ProductCard に渡される
-                            return (
-                                <ProductCard key={product.id} product={product} />
-                            );
-                        })}
+                {/* 3. Main Content (商品リストとページネーション) */}
+                <section className="main-content">
+                    {/* パンくずリスト (トップページでは「ホーム」のみ) */}
+                    <div className="breadcrumb">
+                        <Link href="/">ホーム</Link>
                     </div>
-                )}
 
-                {/* ページネーション */}
-                <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                    <Pagination totalPages={totalPages} />
-                </Suspense>
-            </section>
-        </main>
+                    <h2>🛒 ピックアップ商品 (Page {currentPage})</h2>
+
+                    {/* デバッグ情報: 現在のページ番号を表示 */}
+                    <div
+                        style={{
+                            padding: "10px",
+                            backgroundColor: "#fffbe5",
+                            border: "1px solid #ffe680",
+                            marginBottom: "20px",
+                        }}
+                    >
+                        <strong>デバッグ情報:</strong> URLから認識されたページ番号は
+                        <span style={{ color: "red", fontWeight: "bold" }}>
+                            {" "}
+                            {currentPage}{" "}
+                        </span>{" "}
+                        です。
+                    </div>
+                    
+                    {/* 商品リスト (グリッド表示) */}
+                    {products.length === 0 ? (
+                        <p>商品が見つかりませんでした。</p>
+                    ) : (
+                        <div className="product-grid">
+                            {products.map((product: Product) => { // 型アサーションを追加 (Product型として扱う)
+                                
+                                // データチェック
+                                if (
+                                    !product ||
+                                    !product.id ||
+                                    !product.name || 
+                                    !product.price
+                                ) {
+                                    return null;
+                                }
+
+                                return (
+                                    <ProductCard key={product.id} product={product} />
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* ページネーション */}
+                    <Suspense fallback={<div>ページネーション読み込み中...</div>}>
+                        <Pagination totalPages={totalPages} />
+                    </Suspense>
+                </section>
+            </main>
+        </>
     );
 }

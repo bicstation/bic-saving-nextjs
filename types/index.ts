@@ -1,15 +1,32 @@
-// /types/index.ts
+// /types/index.ts (updated_at 追記修正版)
 
 // --- 1. 商品関連の型 ---
 
-// APIから返される一つの商品オブジェクトの型
+// ★APIから返される生データ用の型 (APIのキー名に合わせる)
+export interface ApiProduct {
+    id: number;
+    product_name: string; // APIキー
+    price: string | number; // APIキー (文字列の可能性あり)
+    image_url: string; // APIキー
+    description?: string | null; // APIキー (nullの可能性も考慮)
+    category?: number | null; // 商品リストAPIで使用
+    // ★追加: 単一商品APIのレスポンスに対応
+    final_category_id?: number | null; 
+    // ★★★ 追記: Sitemap, RSS対応のため updated_at を追加 ★★★
+    updated_at?: string; 
+    [key: string]: any;
+}
+
+// ★アプリケーション内部で利用する統一された型 (ロジック・表示に使用)
 export interface Product {
     id: number;
-    product_name: string;
-    price: string; // APIから文字列として返される可能性を考慮
-    
-    // ProductCard.tsx で利用されているため追加
-    image_url: string; 
+    name: string;    // 統一名
+    price: number;   // 統一名 (数値に変換済み)
+    image: string;   // 統一名
+    description?: string;
+    category?: number | null; // 統一名 (nullの可能性も考慮)
+    // ★★★ 追記: Sitemap, RSS対応のため updated_at を追加 ★★★
+    updated_at?: string; 
 }
 
 // ProductCardが受け取るPropsの型
@@ -21,22 +38,16 @@ export interface ProductCardProps {
 export interface ProductData {
     products: Product[];
     totalPages: number;
-    // ... APIレスポンスにある他のフィールド（例: count, next, previous）
 }
 
 // --- 2. カテゴリ関連の型 ---
 
-// カテゴリの型 (CategorySidebar.tsx に対応)
+// カテゴリの型
 export interface Category {
     id: number;
     name: string;
-    // APIによっては name の代わりに category_name が使われる可能性がある
     category_name?: string; 
-    
-    // CategorySidebarでソート・表示に利用
     product_count?: number; 
-    
-    // CategorySidebarでアコーディオン表示に利用 (再帰的)
     children?: Category[]; 
 }
 
@@ -44,6 +55,5 @@ export interface Category {
 
 // HomePageコンポーネントが受け取るPropsの型
 export interface HomePageProps {
-    // searchParamsの型は Next.jsの規約に従い定義
     searchParams?: { [key: string]: string | string[] | undefined };
 }

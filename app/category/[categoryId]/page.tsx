@@ -1,10 +1,12 @@
-// /app/category/[categoryId]/page.tsx
+// /app/category/[categoryId]/page.tsx (SEO対策 最終完全版)
 
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { Suspense } from "react";
 import React from "react"; 
+import { notFound } from "next/navigation";
+import type { Metadata } from "next"; // メタデータ生成のためにインポート
 
 // コンポーネントのインポート
 import Pagination from "@/app/components/Pagination";
@@ -15,7 +17,8 @@ import ProductCard from "@/app/components/ProductCard";
 import { 
     getProductsByCategory, 
     getCategories,
-    getCategoryBreadcrumbPath // 階層パス取得関数
+    getCategoryBreadcrumbPath, // 階層パス取得関数
+    getCategoryName // メタデータ生成用に個別の名前を取得
 } from "@/lib/data"; 
 
 // 型のインポート
@@ -31,7 +34,51 @@ interface CategoryPageProps {
     };
 }
 
-// --- 2. コンポーネント本体 (型を適用) ---
+// --- 2. メタデータの生成 (SEO対策) ---
+export async function generateMetadata({ params, searchParams }: CategoryPageProps): Promise<Metadata> {
+    const categoryId = parseInt(params.categoryId, 10);
+    const categoryName = await getCategoryName(categoryId);
+    
+    // カテゴリ名が存在しない場合は、NotFoundを返す代わりに、基本的なメタデータを返す（クロール効率のため）
+    if (!categoryName) {
+         return {
+            title: 'カテゴリが見つかりません',
+            description: '指定されたカテゴリは存在しないか、データがありません。',
+        };
+    }
+    
+    // 現在のページ番号を取得し、タイトルに含める（ユーザー向け）
+    const pageParam = (Array.isArray(searchParams?.page) ? searchParams.page[0] : searchParams?.page) || '1'; 
+    const currentPage = parseInt(pageParam, 10);
+
+    const title = `${categoryName} の商品一覧${currentPage > 1 ? ` (Page ${currentPage})` : ''}`;
+        
+    const description = `${categoryName} に属する人気商品、新着商品を多数掲載中。お得な価格で比較検討できます。`;
+
+    // Canonical URLを決定: ページネーションがあってもカテゴリのルートURLを正規とする
+    const canonicalUrl = `https://your-production-domain.com/category/${categoryId}`; // ★★★ 本番URLに修正が必要 ★★★
+
+    return {
+        title: title,
+        description: description,
+        
+        // ★★★ Canonical URLの設定 ★★★
+        alternates: {
+            canonical: canonicalUrl,
+        },
+        
+        // OGP/Twitterも動的に設定
+        openGraph: {
+            title: title,
+            description: description,
+            url: canonicalUrl,
+            type: 'website',
+        },
+    };
+}
+
+
+// --- 3. コンポーネント本体 (型を適用) ---
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
     
     // categoryIdを数値に変換 (data.tsで利用)
@@ -53,68 +100,119 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         getCategories(), 
         getCategoryBreadcrumbPath(categoryId)
     ]);
-
+    
     const { products, totalPages } = productData;
     const finalCategories = categories;
-    // 現在のカテゴリ名をパスの最後のアイテムから取得
     const currentCategoryName = breadcrumbPath.length > 0 
         ? breadcrumbPath[breadcrumbPath.length - 1].name 
         : `ID: ${categoryId} のカテゴリ`;
 
+    // カテゴリ名が取得できなかった場合（データなし）
+    if (breadcrumbPath.length === 0 && products.length === 0) {
+        notFound();
+    }
+
+
+    // ★★★ JSON-LD 構造化データ（ItemListスキーマ）の生成 ★★★
+    // ページのアイテムリスト情報を提供
+    const itemListSchema = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": currentCategoryName + " の商品一覧",
+        "itemListElement": products.map((product, index) => ({
+            "@type": "ListItem",
+            "position": (currentPage - 1) * pageSize + index + 1,
+            "url": `https://your-production-domain.com/product/${product.id}` // ★本番URLに修正
+        }))
+    };
+    
+    // BreadcrumbList スキーマの生成
+    const breadcrumbSchema = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "ホーム",
+                "item": "https://your-production-domain.com/" // ★本番URLに修正
+            },
+            ...breadcrumbPath.map((item, index) => ({
+                "@type": "ListItem",
+                "position": index + 2,
+                "name": item.name,
+                "item": `https://bic-saving.com/category/${item.id}` // ★本番URLに修正
+            }))
+        ]
+    };
+    // -----------------------------------------------------------
+
 
     return (
-        <main className="page-layout">
-            {/* 2. Sidebar */}
-            {/* ★★★ 修正箇所: currentCategoryId を渡すことで、サイドバーで階層を自動展開 ★★★ */}
-            <CategorySidebar 
-                categories={finalCategories} 
-                currentCategoryId={categoryId} 
+        <>
+            {/* ★★★ JSON-LD 構造化データの挿入 ★★★ */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+            />
+             <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />
 
-            {/* 3. Main Content (商品リストとページネーション) */}
-            <section className="main-content">
-                {/* 階層的パンくずリストのレンダリング */}
-                <div className="breadcrumb">
-                    <Link href="/">ホーム</Link>
-                    
-                    {breadcrumbPath.map((item, index) => (
-                        <React.Fragment key={item.id}>
-                            <span> &gt; </span>
-                            {/* 最後のアイテムでなければリンク、最後のアイテムはテキスト */}
-                            {index < breadcrumbPath.length - 1 ? (
-                                <Link href={`/category/${item.id}`}>
-                                    {item.name}
-                                </Link>
-                            ) : (
-                                <span className="current">{item.name}</span>
-                            )}
-                        </React.Fragment>
-                    ))}
-                </div>
+            <main className="page-layout">
+                {/* 2. Sidebar */}
+                {/* currentCategoryId を渡すことで、サイドバーで階層を自動展開 */}
+                <CategorySidebar 
+                    categories={finalCategories} 
+                    currentCategoryId={categoryId} 
+                />
 
-                <h2>📚 {currentCategoryName} の商品一覧 (Page {currentPage})</h2>
-
-                {/* 商品リスト (グリッド表示) */}
-                {products.length === 0 ? (
-                    <p>このカテゴリに商品が見つかりませんでした。</p>
-                ) : (
-                    <div className="product-grid">
-                        {products.map((product) => {
-                            if (!product || !product.id || !product.product_name || !product.price) {
-                                return null;
-                            }
-                            return (
-                                <ProductCard key={product.id} product={product} />
-                            );
-                        })}
+                {/* 3. Main Content (商品リストとページネーション) */}
+                <section className="main-content">
+                    {/* 階層的パンくずリストのレンダリング */}
+                    <div className="breadcrumb">
+                        <Link href="/">ホーム</Link>
+                        
+                        {breadcrumbPath.map((item, index) => (
+                            <React.Fragment key={item.id}>
+                                <span> &gt; </span>
+                                {/* 最後のアイテムでなければリンク、最後のアイテムはテキスト */}
+                                {index < breadcrumbPath.length - 1 ? (
+                                    <Link href={`/category/${item.id}`}>
+                                        {item.name}
+                                    </Link>
+                                ) : (
+                                    <span className="current">{item.name}</span>
+                                )}
+                            </React.Fragment>
+                        ))}
                     </div>
-                )}
 
-                {/* ページネーション */}
-                <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                    <Pagination totalPages={totalPages} />
-                </Suspense>
-            </section>
-        </main>
+                    <h2>📚 {currentCategoryName} の商品一覧 (Page {currentPage})</h2>
+
+                    {/* 商品リスト (グリッド表示) */}
+                    {products.length === 0 ? (
+                        <p>このカテゴリに商品が見つかりませんでした。</p>
+                    ) : (
+                        <div className="product-grid">
+                            {products.map((product) => {
+                                if (!product || !product.id || !product.name || !product.price) {
+                                    return null;
+                                }
+                                return (
+                                    <ProductCard key={product.id} product={product} />
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* ページネーション */}
+                    <Suspense fallback={<div>ページネーション読み込み中...</div>}>
+                        <Pagination totalPages={totalPages} />
+                    </Suspense>
+                </section>
+            </main>
+        </>
     );
 }

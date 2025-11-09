@@ -1,0 +1,233 @@
+// /app/product/[id]/page.tsx (商品個別ページ - SEO対策 最終完全版)
+
+// App Router の Server Component として強制的に動的レンダリングを有効化
+export const dynamic = "force-dynamic";
+
+import Link from "next/link";
+import { notFound } from "next/navigation"; // 404表示のためにインポート
+import type { Metadata } from "next"; // メタデータ生成のためにインポート
+
+// ★追加インポート
+import ProductCard from "@/app/components/ProductCard"; // 関連商品表示に使用
+
+// 共通の型をインポート
+import { Product } from "@/types/index"; 
+
+// ★修正: data.ts から必要な関数をインポート
+import { 
+    getProductById,
+    getCategoryName,
+    getProductsByCategory,
+    // getCategoryBreadcrumbPath // より詳細なパンくずが必要ならこれも使用
+} from "@/lib/data"; 
+
+// --- 1. Propsの型定義 ---
+interface ProductDetailPageProps {
+    params: {
+        id: string; // URLから取得した商品IDは常に文字列
+    };
+    searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+// --- 2. メタデータの生成 (SEO対策) ---
+export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
+    const productId = params.id;
+    const product: Product | null = await getProductById(productId);
+
+    if (!product) {
+        return {
+            title: '商品が見つかりません',
+            description: '指定された商品の情報を見つけることができませんでした。',
+        };
+    }
+    
+    // SEO用ディスクリプションの生成
+    const descriptionText = product.description 
+        ? `${product.description.substring(0, 100)}...【価格: ¥${product.price.toLocaleString()}】`
+        : `${product.name} の詳細ページです。お得な価格で提供中。`;
+    
+    // Canonical URLを決定
+    const canonicalUrl = `https://your-production-domain.com/product/${product.id}`; // ★★★ 本番URLに修正が必要 ★★★
+
+    return {
+        title: product.name, // layout.tsx の template に自動挿入される
+        description: descriptionText,
+        
+        // ★★★ Canonical URLの設定 ★★★
+        alternates: {
+            canonical: canonicalUrl,
+        },
+        
+        // OGP/Twitterも動的に設定
+        openGraph: {
+            title: product.name,
+            description: descriptionText,
+            url: canonicalUrl,
+            images: [product.image || '/og-image.png'],
+        },
+        twitter: {
+            title: product.name,
+            description: descriptionText,
+            images: [product.image || '/og-image.png'],
+        }
+    };
+}
+
+
+// --- 3. ページコンポーネント本体 ---
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+    
+    const productId = params.id; 
+
+    // ★修正: data.ts の getProductById を使用してデータ取得
+    const product: Product | null = await getProductById(productId);
+
+    // 3. 商品が存在しない場合の処理 
+    if (!product) {
+        notFound();
+    }
+    
+    // --- カテゴリ名と関連商品の取得ロジック ---
+    let categoryName: string | null = null;
+    let relatedProducts: Product[] = [];
+    
+    if (product.category) {
+        // カテゴリ名と関連商品のデータを並列で取得
+        const [name, relatedData] = await Promise.all([
+            getCategoryName(product.category),
+            // 同じカテゴリから4件の商品を取得
+            getProductsByCategory({ categoryId: product.category, limit: 4 }),
+        ]);
+
+        categoryName = name;
+        
+        // 関連商品リストから自分自身を除外
+        relatedProducts = relatedData.products.filter(p => p.id !== product.id);
+    }
+    // ---------------------------------------------
+
+
+    // 価格をカンマ区切りにフォーマット
+    const formattedPrice = product.price.toLocaleString();
+    
+    // ★★★ JSON-LD 構造化データ（Productスキーマ）の生成 ★★★
+    const productSchema = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": product.name,
+        "sku": product.id.toString(),
+        "image": product.image,
+        "description": product.description 
+                       ? product.description.substring(0, 150) + '...'
+                       : product.name + "の詳細情報。",
+        // Offers (価格と在庫情報)
+        "offers": {
+            "@type": "Offer",
+            "url": `https://bic-saving.com/product/${product.id}`, // ★本番URLに修正
+            "priceCurrency": "JPY",
+            "price": product.price.toString(),
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock" // 在庫状況に応じて変更
+        }
+    };
+
+
+    // 4. メインコンテンツの表示
+    return (
+        <>
+            {/* ★★★ JSON-LD 構造化データの挿入 ★★★ */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+            />
+        
+            <div className="product-detail-container" style={{ padding: '20px' }}>
+                <section className="product-main-info">
+                    {/* パンくずリスト */}
+                    <nav className="breadcrumb">
+                        <Link href="/">ホーム</Link>
+                        {/* ★カテゴリパンくずを追加 */}
+                        {categoryName && (
+                            <>
+                                <span> &gt; </span>
+                                {/* カテゴリページへのリンク */}
+                                <Link href={`/category/${product.category}`} style={{ color: '#0070f3' }}>
+                                    {categoryName}
+                                </Link>
+                            </>
+                        )}
+                        <span> &gt; </span>
+                        {/* 最終アイテム（現在の商品名） */}
+                        <span className="current" style={{ fontWeight: 'bold' }}>{product.name}</span>
+                    </nav>
+
+                    {/* --- 商品メイン情報エリア --- */}
+                    <div className="product-detail-content" style={{ display: 'flex', gap: '30px', marginTop: '20px' }}>
+                        
+                        {/* 画像エリア */}
+                        <div className="product-image-area">
+                            <img 
+                                src={product.image || '/placeholder.png'} 
+                                alt={product.name} 
+                                style={{ width: '300px', height: 'auto', border: '1px solid #ccc' }} 
+                            />
+                        </div>
+                        
+                        {/* 情報エリア */}
+                        <div className="product-info-area">
+                            {/* ★カテゴリ表示 */}
+                            {categoryName && (
+                                    <p style={{ color: '#0070f3', fontSize: '14px', marginBottom: '5px' }}>
+                                        カテゴリ: <strong>{categoryName}</strong>
+                                    </p>
+                            )}
+
+                            <h1 style={{ marginTop: '0px', marginBottom: '10px' }}>{product.name}</h1>
+                            
+                            <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'red' }}>
+                                価格: ¥{formattedPrice}
+                            </p>
+                            <p style={{ marginTop: '10px' }}><strong>商品ID:</strong> {product.id}</p>
+                            
+                            <p style={{ marginTop: '20px', lineHeight: '1.6' }}>
+                                <strong>商品説明:</strong> {product.description || `現在、${product.name} の詳細な説明は提供されていません。`}
+                            </p>
+                            
+                            <button style={{ 
+                                marginTop: '30px', 
+                                padding: '10px 20px', 
+                                fontSize: '18px', 
+                                backgroundColor: '#0070f3', 
+                                color: 'white', 
+                                border: 'none', 
+                                borderRadius: '5px' 
+                            }}>
+                                カートに追加
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                {/* --- 関連商品セクション --- */}
+                {relatedProducts.length > 0 && (
+                    <section className="related-products" style={{ marginTop: '60px' }}>
+                        <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px' }}>
+                            {categoryName || '他の'} の関連商品
+                        </h2>
+                        <div className="product-grid" style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                            gap: '20px', 
+                            marginTop: '20px'
+                        }}>
+                            {relatedProducts.map((p) => (
+                                // ProductCard コンポーネントを使用
+                                <ProductCard key={p.id} product={p} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </div>
+        </>
+    );
+}
