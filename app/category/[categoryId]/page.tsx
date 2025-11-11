@@ -38,11 +38,12 @@ interface CategoryPageProps {
 }
 
 // --- 2. メタデータの生成 (SEO対策) ---
-// ★修正 1-1: paramsをawaitするために引数を変更し、内部でawaitする
+// ★修正 1-1: params/searchParamsをawaitするために引数を変更し、内部でawaitする
 export async function generateMetadata({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps): Promise<Metadata> {
     
     const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
-    const searchParamsObj = (await awaitedSearchParams) || {}; // Next.js 15 対応 (searchParams await)
+    // searchParamsもPromiseの可能性があるためawaitする (安全のため)
+    const searchParamsObj = (await awaitedSearchParams) || {}; 
 
     const categoryId = parseInt(params.categoryId, 10);
     const categoryName = await getCategoryName(categoryId);
@@ -88,7 +89,7 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
 
 
 // --- 3. コンポーネント本体 (型を適用) ---
-// ★修正 1-2: paramsをawaitするために引数を変更し、内部でawaitする
+// ★修正 1-2: params/searchParamsをawaitするために引数を変更し、内部でawaitする
 export default async function CategoryPage({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps) {
     
     const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
@@ -168,7 +169,7 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
             />
-             <script
+            <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />

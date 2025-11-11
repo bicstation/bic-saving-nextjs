@@ -9,7 +9,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const API_BASE_URL = `${BASE_URL}/api/v1`; 
 
 // APIからカテゴリデータを取得する非同期関数
-export async function getCategories(): Promise<Category[]> {
+// export を削除しました
+async function getCategories(): Promise<Category[]> {
     const apiUrl = `${API_BASE_URL}/categories/`;
     try {
         // カテゴリは更新頻度が低いと想定し、長めのrevalidateを設定
@@ -39,7 +40,8 @@ interface GetProductsParams {
 /**
  * 商品データを取得し、マッピング、フィルタリング、ページネーションを適用する。
  */
-export async function getProducts({ page = 1, limit = 12, categoryId = null, query = null }: GetProductsParams): Promise<ProductData> {
+// export を削除しました
+async function getProducts({ page = 1, limit = 12, categoryId = null, query = null }: GetProductsParams): Promise<ProductData> {
     
     // --- apiUrlの決定ロジック ---
     let apiUrl = '';
@@ -130,7 +132,8 @@ interface GetProductsByCategoryParams {
     page?: number;
     limit?: number;
 }
-export async function getProductsByCategory({ categoryId, page, limit }: GetProductsByCategoryParams): Promise<ProductData> {
+// export を削除しました
+async function getProductsByCategory({ categoryId, page, limit }: GetProductsByCategoryParams): Promise<ProductData> {
     if (!categoryId) {
         throw new Error("Category ID is required for getProductsByCategory.");
     }
@@ -144,7 +147,8 @@ export async function getProductsByCategory({ categoryId, page, limit }: GetProd
 /**
  * IDに基づいて単一の商品データを取得し、マッピングする。
  */
-export async function getProductById(id: string | number): Promise<Product | null> {
+// export を削除しました
+async function getProductById(id: string | number): Promise<Product | null> {
     const apiUrl = `${API_BASE_URL}/products/${id}/`; 
     
     try {
@@ -190,6 +194,7 @@ interface BreadcrumbItem {
     name: string;
 }
 
+// ヘルパー関数は export しません
 function findCategoryNameById(categories: Category[], id: string | number): string | null {
     if (!categories || categories.length === 0) {
         return null;
@@ -212,6 +217,7 @@ function findCategoryNameById(categories: Category[], id: string | number): stri
     return null;
 }
 
+// ヘルパー関数は export しません
 function findCategoryPath(categories: Category[], targetId: number | string, path: BreadcrumbItem[] = []): BreadcrumbItem[] | null {
     const id = parseInt(targetId.toString(), 10);
 
@@ -234,14 +240,16 @@ function findCategoryPath(categories: Category[], targetId: number | string, pat
     return null; 
 }
 
-export async function getCategoryName(categoryId: string | number | null): Promise<string | null> {
+// export を削除しました
+async function getCategoryName(categoryId: string | number | null): Promise<string | null> {
     if (!categoryId) return null;
     
     const categories = await getCategories();
     return findCategoryNameById(categories, categoryId);
 }
 
-export async function getCategoryBreadcrumbPath(categoryId: string | number | null): Promise<BreadcrumbItem[]> {
+// export を削除しました
+async function getCategoryBreadcrumbPath(categoryId: string | number | null): Promise<BreadcrumbItem[]> {
     if (!categoryId) return [];
     
     const categories = await getCategories();
@@ -256,7 +264,8 @@ export async function getCategoryBreadcrumbPath(categoryId: string | number | nu
 /**
  * APIから商品総数を取得する。
  */
-export async function getProductsCount(): Promise<number> {
+// export を削除しました
+async function getProductsCount(): Promise<number> {
     const apiUrl = `${API_BASE_URL}/products?limit=1`;
     try {
         const res = await fetch(apiUrl, { next: { revalidate: 3600 } }); 
@@ -283,7 +292,8 @@ interface ProductIdItem {
     lastModified: string; 
 }
 
-export async function getProductIdsForSitemap(offset: number, limit: number): Promise<ProductIdItem[]> {
+// export を削除しました
+async function getProductIdsForSitemap(offset: number, limit: number): Promise<ProductIdItem[]> {
     const apiUrl = `${API_BASE_URL}/products?limit=${limit}&offset=${offset}`; 
     
     try {
@@ -312,9 +322,6 @@ export async function getProductIdsForSitemap(offset: number, limit: number): Pr
 
 // ====================================================================
 // エクスポートリスト (全ての必要な関数をここで公開する)
-// ※既に 'export async function...' と個別にエクスポートされている関数がありますが、
-//   複数まとめてエクスポートする方式に統一するため、重複する export キーワードを削除しました。
-//   また、privateなヘルパー関数（例: findCategoryNameById）はリストに含めません。
 // ====================================================================
 
 export {
