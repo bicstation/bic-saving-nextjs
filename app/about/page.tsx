@@ -2,8 +2,8 @@
 
 import type { Metadata } from 'next';
 
-// ★★★ 定数: 環境に合わせて修正してください ★★★
-const BASE_URL = 'https://your-production-domain.com'; 
+// ★★★ 修正: 環境変数から本番URLを取得 ★★★
+const BASE_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
 // ★★★ ---------------------------------- ★★★
 
 // 静的なメタデータの定義
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     title: '会社概要 | Bic Saving ECサイト',
     description: '当社の企業理念、沿革、事業内容をご紹介します。信頼と安心のECサイト運営を目指しています。',
     
-    // ★★★ Canonical URLの設定 ★★★
+    // ★★★ Canonical URLの設定 (環境変数を使用) ★★★
     alternates: {
         canonical: `${BASE_URL}/about`,
     },

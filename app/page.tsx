@@ -17,12 +17,19 @@ import { getProducts, getCategories } from "@/lib/data";
 // 型定義のインポート
 import { HomePageProps, Product } from "@/types/index"; 
 
+// ★★★ 環境変数から本番URLを取得 ★★★
+const PRODUCTION_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
+
 // --- 1. メタデータの生成 (SEO対策) ---
 export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
     
+    // 【修正】Next.js 15 対応: searchParams に await を追加
+    const searchParamsObj = (await searchParams) || {};
+    // const { page } = searchParamsObj; // pageはここでは未使用ですが、変数取得の型安全のため残す
+
     // Canonical URLを決定するロジック
-    // フィルタリングやページネーションがあっても、ルートURL（/）を正規とする
-    const canonicalUrl = 'https://your-production-domain.com/'; // ★★★ 本番URLに修正が必要 ★★★
+    // 【修正】環境変数を使用
+    const canonicalUrl = `${PRODUCTION_URL}/`; 
 
     return {
         // title, description は layout.tsx のテンプレートが適用される
@@ -38,10 +45,12 @@ export async function generateMetadata({ searchParams }: HomePageProps): Promise
 
 // --- 2. ページコンポーネント本体 (Server Component) ---
 // HomePageProps を使用して searchParams に型を適用
-export default async function HomePage({ searchParams }: HomePageProps) {
+export default async function HomePage({ searchParams }: HomePageProps) { // 👈 async は既に付与済み
     
     // 1. クエリパラメータからページ番号を取得
-    const { page } = searchParams || {};
+    // 【修正】Next.js 15 対応: searchParams に await を追加 (完了済み)
+    const searchParamsObj = (await searchParams) || {};
+    const { page } = searchParamsObj;
 
     const pageParam = (Array.isArray(page) ? page[0] : page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
@@ -55,7 +64,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             page: currentPage, 
             limit: pageSize,
             categoryId: null, // カテゴリ指定なし
-            query: null       // キーワード検索なし
+            query: null      // キーワード検索なし
         }), 
         getCategories(),
     ]);
@@ -71,10 +80,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 // WebSiteスキーマ: サイト内検索機能のヒントをGoogleに与える
                 "@type": "WebSite",
                 "name": "BIC-SAVING Next.js ECサイト",
-                "url": "https://your-production-domain.com", // ★本番URLに修正
+                "url": PRODUCTION_URL, // 【修正】環境変数を使用
                 "potentialAction": {
                     "@type": "SearchAction",
-                    "target": "https://your-production-domain.com/?query={search_term_string}", // ★本番URLに修正
+                    "target": `${PRODUCTION_URL}/?query={search_term_string}`, // 【修正】環境変数を使用
                     "query-input": "required name=search_term_string"
                 }
             },
@@ -82,8 +91,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 // Organizationスキーマ: サイトの運営元情報
                 "@type": "Organization",
                 "name": "BIC-SAVING",
-                "url": "https://your-production-domain.com", // ★本番URLに修正
-                "logo": "https://your-production-domain.com/og-image.png", // ★本番URLに修正
+                "url": PRODUCTION_URL, // 【修正】環境変数を使用
+                "logo": `${PRODUCTION_URL}/og-image.png`, // 【修正】環境変数を使用
                 "sameAs": [] // ソーシャルメディアURLがあればここに追加
             }
         ]
@@ -111,24 +120,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     </div>
 
                     <h2>🛒 ピックアップ商品 (Page {currentPage})</h2>
-
-                    {/* デバッグ情報: 現在のページ番号を表示 */}
-                    <div
-                        style={{
-                            padding: "10px",
-                            backgroundColor: "#fffbe5",
-                            border: "1px solid #ffe680",
-                            marginBottom: "20px",
-                        }}
-                    >
-                        <strong>デバッグ情報:</strong> URLから認識されたページ番号は
-                        <span style={{ color: "red", fontWeight: "bold" }}>
-                            {" "}
-                            {currentPage}{" "}
-                        </span>{" "}
-                        です。
-                    </div>
-                    
+                   
                     {/* 商品リスト (グリッド表示) */}
                     {products.length === 0 ? (
                         <p>商品が見つかりませんでした。</p>

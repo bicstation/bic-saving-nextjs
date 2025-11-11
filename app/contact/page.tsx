@@ -3,8 +3,8 @@
 import type { Metadata } from 'next';
 import Script from 'next/script'; // JSON-LD挿入のためにインポート
 
-// ★★★ 定数: 環境に合わせて修正してください ★★★
-const BASE_URL = 'https://your-production-domain.com'; 
+// ★★★ 修正: 環境変数から本番URLを取得 ★★★
+const BASE_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
 // ★★★ ---------------------------------- ★★★
 
 // 静的なメタデータの定義
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: 'お問い合わせ | Bic Saving ECサイト',
     description: '商品に関するご質問、メディア取材、その他のお問い合わせはこちらからご連絡ください。',
     
-    // ★★★ Canonical URLの設定 ★★★
+    // ★★★ Canonical URLの設定 (環境変数を使用) ★★★
     alternates: {
         canonical: `${BASE_URL}/contact`,
     },
@@ -23,7 +23,7 @@ export default function ContactPage() {
     const contactSchema = {
         "@context": "https://schema.org",
         "@type": "ContactPage",
-        "url": `${BASE_URL}/contact`,
+        "url": `${BASE_URL}/contact`, // 環境変数を使用
         "mainContentOfPage": {
             "@type": "ContactPoint",
             "telephone": "+81-03-XXXX-XXXX", // 実際の電話番号
@@ -36,6 +36,7 @@ export default function ContactPage() {
     return (
         <>
             {/* JSON-LD 構造化データの挿入 */}
+            {/* Server Component内でNext.jsのScriptコンポーネントを使用し、JSON-LDをheadに追加 */}
             <Script
                 id="contact-schema"
                 type="application/ld+json"

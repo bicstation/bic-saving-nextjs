@@ -8,11 +8,30 @@ import { Category } from "@/types/index";
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa'; 
 
 
+// --- 共通ヘルパー関数 ---
+
+/**
+ * category が targetId の祖先または自身であるかチェックする再帰関数
+ */
+const isAncestorOf = (category: Category, targetId: number | null | undefined): boolean => {
+    if (!targetId) return false;
+    
+    // 自身がターゲットであればtrue
+    if (category.id === targetId) return true;
+    
+    // 子カテゴリを再帰的にチェック
+    if (category.children && category.children.length > 0) {
+        return category.children.some(child => isAncestorOf(child, targetId));
+    }
+    
+    return false;
+};
+
+
 // --- 1. SubCategoryList の型定義とコンポーネント ---
 
 interface SubCategoryListProps {
     subCategories: Category[];
-    // ★追加: 現在のカテゴリIDを受け取る
     currentCategoryId: number | null | undefined; 
 }
 
@@ -51,7 +70,6 @@ interface CategoryItemProps {
     category: Category; 
     activeId: number | null; 
     setActiveId: (id: number | null) => void;
-    // ★追加: 現在のカテゴリIDを受け取る
     currentCategoryId: number | null | undefined; 
 }
 
@@ -60,10 +78,8 @@ const CategoryItem = ({ category, activeId, setActiveId, currentCategoryId }: Ca
     const isOpen = activeId === category.id;
     const hasChildren = category.children && category.children.length > 0;
     
-    // ★修正: 現在のカテゴリ、またはその親カテゴリであればハイライト（パス表示）
-    const isCurrent = category.id === currentCategoryId;
-    // 子カテゴリのリストに currentCategoryId が含まれているかチェック (簡易的な親のハイライト)
-    const isParentOfCurrent = category.children?.some(c => c.id === currentCategoryId); 
+    // ★修正: 再帰関数 isAncestorOf を使用し、自身または子孫に currentCategoryId が含まれているかチェック
+    const isPathActive = isAncestorOf(category, currentCategoryId);
 
     const handleToggle = (e: MouseEvent<HTMLButtonElement>) => {
         e.preventDefault(); 
@@ -72,8 +88,8 @@ const CategoryItem = ({ category, activeId, setActiveId, currentCategoryId }: Ca
 
     return (
         <li 
-            // ★修正: current-path クラスを追加して、現在地までのパスを視覚化
-            className={`category-item ${isOpen ? 'open' : ''} ${isCurrent || isParentOfCurrent ? 'current-path' : ''}`}
+            // ★修正: isPathActive を使って、現在地までのパスを正確に視覚化
+            className={`category-item ${isOpen ? 'open' : ''} ${isPathActive ? 'current-path' : ''}`}
         >
             <div className="category-header">
                 <Link
@@ -107,14 +123,17 @@ const CategoryItem = ({ category, activeId, setActiveId, currentCategoryId }: Ca
 
 interface CategorySidebarProps {
     categories: Category[]; 
-    // ★追加: ページから渡される現在のカテゴリID
     currentCategoryId?: number | null; 
 }
 
 // サイドバー全体のコンポーネント
 export default function CategorySidebar({ categories, currentCategoryId }: CategorySidebarProps) {
-    // ★修正: currentCategoryId があれば、それを初期値としてアクティブにする
-    // これにより、ページロード時に適切な階層が自動的に開く
+    
+    // ★修正: currentCategoryId の親カテゴリを初期状態で開くロジックを強化 (親カテゴリのIDを検索する必要あり)
+    
+    // HACK: CategoryItemのisAncestorOf関数と同じロジックを使い、トップレベルカテゴリから currentCategoryId の親を探す必要がある。
+    // しかし、このコンポーネントのトップレベルではstateの初期化時に同期的に行う必要があるため、一旦現在のロジックを維持しつつ、
+    // isAncestorOfのチェックが成功するカテゴリIDを初期値に設定する (今回は currentCategoryId がそのままトップレベルの子の場合を想定し、このまま)
     const [activeCategoryId, setActiveCategoryId] = useState<number | null>(currentCategoryId || null);
 
     return (

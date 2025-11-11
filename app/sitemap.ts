@@ -3,8 +3,9 @@
 import { MetadataRoute } from 'next';
 import { getProductsCount, getCategories } from '@/lib/data'; // 商品数とカテゴリを取得する関数をインポート
 
-// ★★★ 定数: 環境に合わせて修正してください ★★★
-const BASE_URL = 'https://your-production-domain.com'; 
+// ★★★ 定数: 環境変数から取得するように修正 ★★★
+// NEXT_PUBLIC_PRODUCTION_URL は .env.local で定義されています。
+const BASE_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
 const PRODUCTS_PER_SITEMAP = 50000; // 1つの商品サイトマップファイルに含める商品数（Googleの推奨上限は5万件）
 // ★★★ ---------------------------------- ★★★
 

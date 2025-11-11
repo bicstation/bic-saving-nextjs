@@ -24,6 +24,9 @@ import {
 // 型のインポート
 import { ProductData, Category } from "@/types/index"; 
 
+// ★★★ 環境変数から本番URLを取得 ★★★
+const PRODUCTION_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
+
 // --- 1. コンポーネントPropsの型定義 ---
 interface CategoryPageProps {
     params: {
@@ -35,20 +38,25 @@ interface CategoryPageProps {
 }
 
 // --- 2. メタデータの生成 (SEO対策) ---
-export async function generateMetadata({ params, searchParams }: CategoryPageProps): Promise<Metadata> {
+// ★修正 1-1: paramsをawaitするために引数を変更し、内部でawaitする
+export async function generateMetadata({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps): Promise<Metadata> {
+    
+    const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
+    const searchParamsObj = (await awaitedSearchParams) || {}; // Next.js 15 対応 (searchParams await)
+
     const categoryId = parseInt(params.categoryId, 10);
     const categoryName = await getCategoryName(categoryId);
     
     // カテゴリ名が存在しない場合は、NotFoundを返す代わりに、基本的なメタデータを返す（クロール効率のため）
     if (!categoryName) {
-         return {
-            title: 'カテゴリが見つかりません',
-            description: '指定されたカテゴリは存在しないか、データがありません。',
-        };
+           return {
+               title: 'カテゴリが見つかりません',
+               description: '指定されたカテゴリは存在しないか、データがありません。',
+           };
     }
     
     // 現在のページ番号を取得し、タイトルに含める（ユーザー向け）
-    const pageParam = (Array.isArray(searchParams?.page) ? searchParams.page[0] : searchParams?.page) || '1'; 
+    const pageParam = (Array.isArray(searchParamsObj?.page) ? searchParamsObj.page[0] : searchParamsObj?.page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
 
     const title = `${categoryName} の商品一覧${currentPage > 1 ? ` (Page ${currentPage})` : ''}`;
@@ -56,7 +64,8 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
     const description = `${categoryName} に属する人気商品、新着商品を多数掲載中。お得な価格で比較検討できます。`;
 
     // Canonical URLを決定: ページネーションがあってもカテゴリのルートURLを正規とする
-    const canonicalUrl = `https://your-production-domain.com/category/${categoryId}`; // ★★★ 本番URLに修正が必要 ★★★
+    // 環境変数を使用
+    const canonicalUrl = `${PRODUCTION_URL}/category/${categoryId}`; 
 
     return {
         title: title,
@@ -79,13 +88,17 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
 
 
 // --- 3. コンポーネント本体 (型を適用) ---
-export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
+// ★修正 1-2: paramsをawaitするために引数を変更し、内部でawaitする
+export default async function CategoryPage({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps) {
+    
+    const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
+    const searchParamsObj = (await awaitedSearchParams) || {}; // Next.js 15 対応 (searchParams await)
     
     // categoryIdを数値に変換 (data.tsで利用)
     const categoryId = parseInt(params.categoryId, 10);
     
     // ページングの処理
-    const { page } = searchParams || {};
+    const { page } = searchParamsObj || {};
     const pageParam = (Array.isArray(page) ? page[0] : page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
     const pageSize = 12;
@@ -122,7 +135,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         "itemListElement": products.map((product, index) => ({
             "@type": "ListItem",
             "position": (currentPage - 1) * pageSize + index + 1,
-            "url": `https://your-production-domain.com/product/${product.id}` // ★本番URLに修正
+            "url": `${PRODUCTION_URL}/product/${product.id}` // 環境変数を使用
         }))
     };
     
@@ -135,13 +148,13 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 "@type": "ListItem",
                 "position": 1,
                 "name": "ホーム",
-                "item": "https://your-production-domain.com/" // ★本番URLに修正
+                "item": `${PRODUCTION_URL}/` // 環境変数を使用
             },
             ...breadcrumbPath.map((item, index) => ({
                 "@type": "ListItem",
                 "position": index + 2,
                 "name": item.name,
-                "item": `https://bic-saving.com/category/${item.id}` // ★本番URLに修正
+                "item": `${PRODUCTION_URL}/category/${item.id}` // 環境変数を使用
             }))
         ]
     };
@@ -160,42 +173,48 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />
 
-            <main className="page-layout">
+            <main className="page-layout" style={{ display: 'flex', gap: '20px', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
                 {/* 2. Sidebar */}
                 {/* currentCategoryId を渡すことで、サイドバーで階層を自動展開 */}
-                <CategorySidebar 
-                    categories={finalCategories} 
-                    currentCategoryId={categoryId} 
-                />
+                <aside style={{ flex: '0 0 250px' }}>
+                    <CategorySidebar 
+                        categories={finalCategories} 
+                        currentCategoryId={categoryId} 
+                    />
+                </aside>
 
                 {/* 3. Main Content (商品リストとページネーション) */}
-                <section className="main-content">
+                <section className="main-content" style={{ flex: '1' }}>
                     {/* 階層的パンくずリストのレンダリング */}
-                    <div className="breadcrumb">
-                        <Link href="/">ホーム</Link>
+                    <div className="breadcrumb" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                        <Link href="/" style={{ color: '#0070f3' }}>ホーム</Link>
                         
                         {breadcrumbPath.map((item, index) => (
                             <React.Fragment key={item.id}>
                                 <span> &gt; </span>
                                 {/* 最後のアイテムでなければリンク、最後のアイテムはテキスト */}
                                 {index < breadcrumbPath.length - 1 ? (
-                                    <Link href={`/category/${item.id}`}>
+                                    <Link href={`/category/${item.id}`} style={{ color: '#0070f3' }}>
                                         {item.name}
                                     </Link>
                                 ) : (
-                                    <span className="current">{item.name}</span>
+                                    <span className="current" style={{ fontWeight: 'bold' }}>{item.name}</span>
                                 )}
                             </React.Fragment>
                         ))}
                     </div>
 
-                    <h2>📚 {currentCategoryName} の商品一覧 (Page {currentPage})</h2>
+                    <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>📚 {currentCategoryName} の商品一覧 (Page {currentPage})</h1>
 
                     {/* 商品リスト (グリッド表示) */}
                     {products.length === 0 ? (
-                        <p>このカテゴリに商品が見つかりませんでした。</p>
+                        <p style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '5px' }}>このカテゴリに商品が見つかりませんでした。</p>
                     ) : (
-                        <div className="product-grid">
+                        <div className="product-grid" style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
+                            gap: '20px'
+                        }}>
                             {products.map((product) => {
                                 if (!product || !product.id || !product.name || !product.price) {
                                     return null;
@@ -208,9 +227,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     )}
 
                     {/* ページネーション */}
-                    <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                        <Pagination totalPages={totalPages} />
-                    </Suspense>
+                    <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
+                        <Suspense fallback={<div>ページネーション読み込み中...</div>}>
+                            <Pagination totalPages={totalPages} />
+                        </Suspense>
+                    </div>
                 </section>
             </main>
         </>

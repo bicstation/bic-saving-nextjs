@@ -21,6 +21,11 @@ import {
     // getCategoryBreadcrumbPath // より詳細なパンくずが必要ならこれも使用
 } from "@/lib/data"; 
 
+// ★★★ 環境変数から本番URLを取得 ★★★
+const BASE_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
+// ★★★ ---------------------------------- ★★★
+
+
 // --- 1. Propsの型定義 ---
 interface ProductDetailPageProps {
     params: {
@@ -30,7 +35,12 @@ interface ProductDetailPageProps {
 }
 
 // --- 2. メタデータの生成 (SEO対策) ---
-export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
+// ★修正 1: paramsをawaitするために引数を変更し、内部でawaitする
+export async function generateMetadata({ params: awaitedParams }: ProductDetailPageProps): Promise<Metadata> {
+    
+    // エラー解消のための対応: paramsをawaitしてから使用
+    const params = await awaitedParams; 
+    
     const productId = params.id;
     const product: Product | null = await getProductById(productId);
 
@@ -47,7 +57,7 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
         : `${product.name} の詳細ページです。お得な価格で提供中。`;
     
     // Canonical URLを決定
-    const canonicalUrl = `https://your-production-domain.com/product/${product.id}`; // ★★★ 本番URLに修正が必要 ★★★
+    const canonicalUrl = `${BASE_URL}/product/${product.id}`; 
 
     return {
         title: product.name, // layout.tsx の template に自動挿入される
@@ -75,7 +85,11 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
 
 
 // --- 3. ページコンポーネント本体 ---
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+// ★修正 2: paramsをawaitするために引数を変更し、内部でawaitする
+export default async function ProductDetailPage({ params: awaitedParams }: ProductDetailPageProps) {
+    
+    // エラー解消のための対応: paramsをawaitしてから使用
+    const params = await awaitedParams; 
     
     const productId = params.id; 
 
@@ -118,12 +132,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
         "sku": product.id.toString(),
         "image": product.image,
         "description": product.description 
-                       ? product.description.substring(0, 150) + '...'
-                       : product.name + "の詳細情報。",
+                         ? product.description.substring(0, 150) + '...'
+                         : product.name + "の詳細情報。",
         // Offers (価格と在庫情報)
         "offers": {
             "@type": "Offer",
-            "url": `https://bic-saving.com/product/${product.id}`, // ★本番URLに修正
+            "url": `${BASE_URL}/product/${product.id}`, 
             "priceCurrency": "JPY",
             "price": product.price.toString(),
             "itemCondition": "https://schema.org/NewCondition",
@@ -136,6 +150,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     return (
         <>
             {/* ★★★ JSON-LD 構造化データの挿入 ★★★ */}
+            {/* Server Componentでは、scriptタグを直接レンダリング可能 */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}

@@ -14,10 +14,15 @@ interface SearchPageProps {
 
 // 検索結果コンポーネント (Server Component)
 export default async function SearchPage({ searchParams }: SearchPageProps) {
+    
+    // 【修正】Next.js 15 (React 19) の仕様変更に対応するため await を追加
+    const searchParamsObj = (await searchParams) || {};
+
     // 1. クエリパラメータからキーワードとページ番号を取得
-    const query = searchParams.q || "";
+    const query = searchParamsObj.q || "";
+    
     // Note: currentPageはgetProductsに渡すが、Paginationコンポーネントには渡さない
-    const currentPage = parseInt(searchParams.page || "1", 10); 
+    const currentPage = parseInt(searchParamsObj.page || "1", 10); 
     const productsPerPage = 12;
 
     let productData: ProductData = { products: [], totalPages: 1 };
@@ -30,7 +35,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             page: currentPage, 
             limit: productsPerPage, 
             categoryId: null, // カテゴリ検索はしない
-            query: query,      // キーワード検索を有効化
+            query: query,      // キーワード検索を有効化
         });
     } catch (e) {
         console.error("Failed to fetch search results:", e);

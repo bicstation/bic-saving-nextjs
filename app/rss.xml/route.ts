@@ -4,8 +4,8 @@ import { getProducts } from '@/lib/data'; // 既存の商品取得関数をイ�
 import { NextResponse } from 'next/server';
 import { Product } from '@/types/index';
 
-// ★★★ 定数: 環境に合わせて修正してください ★★★
-const BASE_URL = 'https://your-production-domain.com'; 
+// ★★★ 修正: 環境変数から本番URLを取得 ★★★
+const BASE_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
 const SITE_TITLE = 'Bic Saving Next.js ECサイト';
 const SITE_DESCRIPTION = 'Bic Saving APIを利用した最新の商品情報フィード';
 const FEED_LIMIT = 30; // フィードに含める最新の商品数
