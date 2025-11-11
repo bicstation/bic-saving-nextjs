@@ -174,7 +174,12 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />
 
-            <main className="page-layout" style={{ display: 'flex', gap: '20px', maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+            <main className="page-layout" style={{ 
+                display: 'flex', 
+                gap: '20px', 
+                // maxWidth: '1200px', 
+                // margin: '0 auto', 
+                padding: '20px' }}>
                 {/* 2. Sidebar */}
                 {/* currentCategoryId を渡すことで、サイドバーで階層を自動展開 */}
                 <aside style={{ flex: '0 0 250px' }}>
