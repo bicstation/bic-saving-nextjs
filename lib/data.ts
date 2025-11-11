@@ -308,3 +308,29 @@ export async function getProductIdsForSitemap(offset: number, limit: number): Pr
         return [];
     }
 }
+
+
+// ====================================================================
+// エクスポートリスト (全ての必要な関数をここで公開する)
+// ※既に 'export async function...' と個別にエクスポートされている関数がありますが、
+//   複数まとめてエクスポートする方式に統一するため、重複する export キーワードを削除しました。
+//   また、privateなヘルパー関数（例: findCategoryNameById）はリストに含めません。
+// ====================================================================
+
+export {
+    // カテゴリ/全体の商品取得
+    getCategories,
+    getProducts,
+    getProductsByCategory,
+    
+    // 単一商品取得
+    getProductById,
+    
+    // カテゴリ名/パンくず取得
+    getCategoryName,
+    getCategoryBreadcrumbPath,
+    
+    // Sitemap/RSS用
+    getProductsCount,
+    getProductIdsForSitemap,
+};
