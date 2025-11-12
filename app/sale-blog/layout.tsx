@@ -1,115 +1,106 @@
-// /app/sale-blog/[slug]/page.tsx
+// /app/sale-blog/layout.tsx
 
-import { notFound } from 'next/navigation';
-import { Metadata } from 'next';
-import { getPostBySlug, getPosts, getCategoryNameById } from "@/lib/wordpress"; 
-import Script from 'next/script';
-import Link from 'next/link';
+import React from "react";
+// 外部スクリプト（アフィリエイト）のために next/script をインポート
+import Script from "next/script";
 
-// ISR設定: 1時間 (3600秒) ごとに再生成
-export const revalidate = 3600; 
+// WordPress API連携に必要な関数と型をインポート
+import { getWPCategories, WPCategory } from "@/lib/wordpress";
+// ECサイト API連携に必要な関数と型をインポート
+import { getTopCategories, Category } from "@/lib/bic-saving";
 
-// ★★★ 修正1: 以前の会話でmaxWidthを削除したため、layout.tsxのCSSに任せる ★★★
-// BlogSidebarコンポーネントがClient Componentであるため、Layout.tsxでClient Componentにラッパーしている場合、ここでは不要です。
-// レイアウトのスタイルはlayout.tsx側で一括管理します。
-const postDetailStyle: React.CSSProperties = {
-    // 以前のインラインスタイルを削除
-};
+// BlogSidebar コンポーネントをインポート
+import BlogSidebar from "../components/BlogSidebar";
 
-/**
- * 動的なメタデータを生成 (Static Generation)
- */
-export async function generateMetadata({ 
-    params 
-}: { 
-    params: { slug: string } 
-}): Promise<Metadata> {
-    const post = await getPostBySlug(params.slug);
+// ISR の設定: 1時間 (3600秒) ごとにバックグラウンドで再生成
+export const revalidate = 3600;
 
-    if (!post) {
-        return {};
-    }
+// レイアウトコンポーネントはデータを取得するため async function に変更
+export default async function SaleBlogLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  let wpCategories: WPCategory[] = []; // WordPressカテゴリ
+  let ecCategories: Category[] = []; // ECサイトカテゴリ
 
-    const title = post.title.rendered;
-    const description = post.excerpt.rendered.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...';
+  try {
+    // WordPressカテゴリとECサイトカテゴリのデータを並列で取得
+    const [wpData, ecData] = await Promise.all([
+      getWPCategories(),
+      getTopCategories(),
+    ]);
 
-    return {
-        title: title,
-        description: description,
-        // OGP画像はWordPressのfeatured_media URLを使用するか、デフォルトを設定
-        openGraph: {
-            title: title,
-            description: description,
-            url: `${process.env.NEXT_PUBLIC_PRODUCTION_URL}/sale-blog/${params.slug}`,
-            images: post.featured_media_url ? [post.featured_media_url] : ['/og-image.png'],
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: title,
-            description: description,
-            images: post.featured_media_url ? [post.featured_media_url] : ['/og-image.png'],
-        }
-    };
-}
+    wpCategories = wpData;
+    ecCategories = ecData;
+  } catch (error) {
+    // データ取得に失敗した場合でも、エラーを出力し、レンダリングは続行
+    console.error("Failed to fetch sidebar data:", error);
+  }
 
-/**
- * 動的な静的パスを生成 (Static Generation)
- */
-export async function generateStaticParams() {
-    const posts = await getPosts(100); // 最新の100件からパスを生成
-    return posts.map(post => ({
-        slug: post.slug,
-    }));
-}
+  return (
+    // Fragment (<>...</>) を使用して、<div> と <Script> をラップ
+    <>
+      {/* メインコンテンツとサイドバーをフレックスボックスで並べるコンテナ */}
+      {/* 修正点: gap: '40px' を追加し、padding で左右の余白も確保 */}
+      <div style={{ display: "flex", maxWidth: "1600px", margin: "0 auto", padding: "20px", gap: '40px' }}>
+        
+        {/* 1. 左サイドバーエリア */}
+        {/* 修正点: flexGrow: 0, flexShrink: 0, width: '280px' で幅を固定 */}
+        {/* BlogSidebarにstyleプロパティを渡す。これにはBlogSidebarコンポーネント側の型定義の修正が必要です。 */}
+        <BlogSidebar
+          wpCategories={wpCategories} // WordPressカテゴリ
+          ecCategories={ecCategories} // ECサイトカテゴリ
+          style={{ flexGrow: 0, flexShrink: 0, width: '280px' }} // サイドバーの幅を固定
+        />
 
-// メインのコンポーネント
-export default async function PostDetailPage({ params }: { params: { slug: string } }) {
-    const post = await getPostBySlug(params.slug);
+        {/* 2. メインコンテンツエリア (children) */}
+        {/* 修正点: flexGrow: 1 で残りのスペースを占有、paddingLeft を削除/0 にして gap に任せる */}
+        <div style={{ flexGrow: 1, minWidth: "0", paddingLeft: "0" }}>
+            {children}
+        </div>
+      </div>
 
-    if (!post) {
-        notFound();
-    }
-    
-    // カテゴリ名を取得
-    const categoryName = post.categories && post.categories.length > 0
-        ? await getCategoryNameById(post.categories[0])
-        : null;
-
-    // ★★★ 修正箇所: convertToAffiliateLink の呼び出しを完全に削除 ★★★
-    // Rawコンテンツをそのまま表示変数に代入
-    const processedContent = post.content.rendered;
-
-    return (
-        // ★★★ 修正箇所: インラインスタイルを削除し、layout.tsxに任せる ★★★
-        // layout.tsxがブログ全体で幅を制御するため、ここではパディングのみにすることが多いですが、
-        // layout.tsx側の設計に合わせて、ここではインラインスタイルを完全に削除します。
-        <main> 
-            <div style={{ padding: '20px 0' }}>
-                {categoryName && (
-                    <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '10px' }}>
-                        カテゴリ: <Link href={`/sale-blog/category/${post.categories[0]}`} style={{ color: '#007bff' }}>{categoryName}</Link>
-                    </p>
-                )}
-                
-                <h1 style={{ fontSize: '2.2rem', marginBottom: '15px' }}>{post.title.rendered}</h1>
-                
-                <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '30px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                    公開日: {new Date(post.date).toLocaleDateString('ja-JP')}
-                </p>
-
-                {/* 記事のコンテンツを表示 */}
-                {/* ★★★ 修正: 生のコンテンツ (processedContent) を使用して HTML を表示 ★★★ */}
-                <div 
-                    dangerouslySetInnerHTML={{ __html: processedContent }} 
-                    style={{ lineHeight: 1.8 }}
-                />
-
-                <div style={{ marginTop: '50px', paddingTop: '20px', borderTop: '1px dashed #ccc', textAlign: 'center' }}>
-                    <Link href="/sale-blog" style={{ textDecoration: 'underline' }}>
-                        &larr; セール情報一覧へ戻る
-                    </Link>
-                </div>
-            </div>
-        </main>
-    );
+      {/* Rakuten Automate スクリプトを body の最後に挿入 */}
+      <Script
+        id="rakuten-automate"
+        strategy="afterInteractive" 
+        dangerouslySetInnerHTML={{
+          __html: `
+            var _rakuten_automate = {
+              u1: "", 
+              snippetURL: "https://automate-frontend.linksynergy.com/minified_logic.js", 
+              automateURL: "https://automate.linksynergy.com", 
+              widgetKey: "t9VuS07SBl0sO0u4jAGNuuSmdGgzHTIn", // あなたの固有のキー
+              aelJS: null, 
+              useDefaultAEL: false, 
+              loaded: false, 
+              events: [] 
+            };
+            var ael = window.addEventListener;
+            window.addEventListener = function(a, b, c, d) {
+              "click" !== a && _rakuten_automate.useDefaultAEL ? ael(a, b, c) : _rakuten_automate.events.push({type: a, handler: b, capture: c, rakuten: d});
+            };
+            _rakuten_automate.links = {};
+            var httpRequest = new XMLHttpRequest;
+            httpRequest.open("GET", _rakuten_automate.snippetURL, !0);
+            httpRequest.timeout = 5E3;
+            httpRequest.ontimeout = function() {
+              if (!_rakuten_automate.loaded) {
+                for(let i=0; i<_rakuten_automate.events.length; i++) {
+                  var a = _rakuten_automate.events[i];
+                  ael(a.type, a.handler, a.capture);
+                }
+                _rakuten_automate.useDefaultAEL = !0;
+              }
+            };
+            httpRequest.onreadystatechange = function() {
+              httpRequest.readyState === XMLHttpRequest.DONE && 200 === httpRequest.status && (eval(httpRequest.responseText), _rakuten_automate.run(ael));
+            };
+            httpRequest.send(null);
+          `,
+        }}
+      />
+    </>
+  );
 }
