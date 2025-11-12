@@ -25,23 +25,21 @@ interface CategoryApiResponse {
  * @returns トップレベルカテゴリの配列
  */
 export async function getTopCategories(): Promise<Category[]> {
-    // 修正された正しいURLを使用
     const EC_API_URL = "https://api.bic-saving.com/api/v1/categories/"; 
 
-    // Next.jsのServer Componentとしてキャッシュを利用
     const res = await fetch(EC_API_URL, {
         cache: 'force-cache' 
     });
     
     // API呼び出しが成功したかチェック
     if (!res.ok) {
-        // のエラーの原因となる行。APIエラー発生時に実行される
-        throw new Error(`Failed to fetch EC categories: ${res.statusText}`); 
+        // ★★★ 修正: エラーを throw せず、コンソールにログを出力し、空の配列を返す ★★★
+        console.error(`Failed to fetch EC categories: ${res.statusText} (${res.status}). Returning empty array.`);
+        return []; 
     }
 
-    // JSONをパース
     const data: CategoryApiResponse = await res.json();
     
-    // ★★★ 修正: カテゴリデータが含まれる 'results' 配列を抽出して返す ★★★
+    // カテゴリデータが含まれる 'results' 配列を抽出して返す
     return data.results;
 }

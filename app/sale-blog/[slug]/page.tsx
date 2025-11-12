@@ -1,5 +1,7 @@
 // app/sale-blog/[slug]/page.tsx
-import { getPostBySlug, getFeaturedImageUrl, Post, getSalePosts } from "@/lib/wordpress"; 
+
+// ★★★ 修正箇所: convertToAffiliateLink をインポートに追加 ★★★
+import { getPostBySlug, getFeaturedImageUrl, Post, convertToAffiliateLink } from "@/lib/wordpress"; 
 import { notFound } from "next/navigation";
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,7 +19,7 @@ interface PostDetailPageProps {
 // 記事データに基づいて動的なメタデータ (SEO) を生成
 export async function generateMetadata({ params }: PostDetailPageProps): Promise<Metadata> {
     
-    // ★★★ 修正: paramsを強制的に await してから slug にアクセスする ★★★
+    // paramsの非同期アクセス回避
     const resolvedParams = await params; 
     const post = await getPostBySlug(resolvedParams.slug); 
 
@@ -50,7 +52,7 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
     
-    // ★★★ 修正: paramsを強制的に await してから slug にアクセスする ★★★
+    // paramsの非同期アクセス回避
     const resolvedParams = await params;
     
     // URLから受け取ったスラッグで記事データを取得
@@ -60,6 +62,10 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
     if (!post) {
         notFound();
     }
+    
+    // ★★★ 修正箇所: コンテンツを表示前にアフィリエイトリンクに変換 ★★★
+    const processedContent = convertToAffiliateLink(post.content.rendered);
+
 
     return (
         <main style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
@@ -87,7 +93,8 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
             )}
             
             <div className="post-content">
-                <div dangerouslySetInnerHTML={{ __html: post.content.rendered }} />
+                {/* ★★★ 修正箇所: 変換済みのコンテンツを表示 ★★★ */}
+                <div dangerouslySetInnerHTML={{ __html: processedContent }} />
             </div>
             
             <Link href="/sale-blog" style={{ marginTop: '40px', display: 'block', textDecoration: 'underline' }}>
