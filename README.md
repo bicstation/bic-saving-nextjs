@@ -4,9 +4,11 @@
 
 本プロジェクトは、**Next.js 15 App Router**および**React 19**の最新仕様に完全対応した高性能なEコマースサイトのフロントエンド実装です。
 
-BIC-SAVINGという架空のAPIから商品データを取得し、Server Components（RSC）を最大限に活用することで、高速な初期ロードと優れたSEO性能を実現しています。
+BIC-SAVINGという架空のAPIから商品データを取得し、Server Components（RSC）を最大限に活用することで、
+高速な初期ロードと優れたSEO性能を実現しています。
 
-主な目的は、最新のNext.jsの機能（Server Actions、動的ルーティング、Metadata APIなど）を実践的に使用し、モダンなWebアプリケーションを構築することです。
+主な目的は、最新のNext.jsの機能（Server Actions、動的ルーティング、Metadata APIなど）を実践的に使用し、
+モダンなWebアプリケーションを構築することです。
 
 ---
 
