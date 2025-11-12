@@ -1,0 +1,96 @@
+/* /app/sale-blog/blog-list.module.css */
+
+/* --- 記事カード全体 (PC: Flex Row, Mobile: Flex Column) --- */
+.articleCard {
+    display: flex; 
+    border: 1px solid var(--color-border);
+    border-radius: 8px; 
+    margin-bottom: 30px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden; 
+}
+
+/* --- 画像ラッパー --- */
+.imageWrapper {
+    width: 300px; 
+    flex-shrink: 0;
+    position: relative;
+}
+
+.articleImage {
+    width: 100%;
+    height: 100%; 
+    object-fit: cover;
+}
+
+/* --- テキストコンテンツ --- */
+.articleContent {
+    padding: 20px;
+    flex-grow: 1;
+}
+
+.articleTitle {
+    color: var(--color-primary); 
+    font-size: 1.4rem;
+    margin-bottom: 5px;
+}
+
+.titleLink:hover .articleTitle {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+.articleDate {
+    color: #666; 
+    font-size: 0.9em;
+}
+
+.articleExcerpt {
+    margin-top: 15px;
+    line-height: 1.6;
+    color: var(--color-text);
+}
+
+.detailLink {
+    display: inline-block;
+    margin-top: 10px;
+    text-decoration: underline;
+    color: var(--color-primary);
+}
+
+.detailLink:hover {
+    color: #0056b3;
+}
+
+/* --- エラーメッセージ --- */
+.errorMessage {
+    color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
+    background-color: #f8d7da;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+.noPostMessage {
+    margin-top: 30px;
+    padding: 15px;
+    border: 1px dashed #ccc;
+    text-align: center;
+}
+
+/* === レスポンシブ対応 (768px以下) === */
+@media (max-width: 768px) {
+    .articleCard {
+        flex-direction: column; 
+    }
+
+    .imageWrapper {
+        width: 100%; 
+        height: 200px; 
+    }
+
+    .articleImage {
+        object-fit: cover; 
+    }
+}

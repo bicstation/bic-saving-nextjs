@@ -1,0 +1,43 @@
+/* /app/sale-blog/blog.module.css */
+
+/* 1. 全体コンテナのスタイル (PCビュー) */
+.blogContainer {
+    /* デスクトップ用: 中央寄せ */
+    display: flex;
+    margin: 0 auto;
+    /* ★修正済み: 間隔を16pxに狭く設定 */
+    gap: 16px; 
+    /* 左右の余白（画面端にベタ付き防止） */
+    padding: 20px 40px; 
+}
+
+/* 2. メインコンテンツのスタイル */
+.mainContent {
+    flex-grow: 1; 
+    min-width: 0; /* Flexboxでコンテンツが溢れるのを防ぐ */
+}
+
+/* 3. サイドバーのラッパー (layout.tsxでSidebarを囲む要素) */
+.sidebarWrapper {
+    /* PCでのサイドバーの幅は、Sidebarコンポーネントまたは他のCSSで制御されていると仮定 */
+    flex-shrink: 0;
+}
+
+
+/* === レスポンシブ対応 (768px以下) === */
+
+@media (max-width: 768px) {
+    /* 1. 全体コンテナのレイアウト変更 */
+    .blogContainer {
+        /* スマホでは縦並びにする */
+        flex-direction: column; 
+        /* 左右のパディングを狭くする */
+        padding: 10px 10px;
+        gap: 0; /* 縦並びなので隙間は不要 */
+    }
+
+    /* 2. サイドバーを非表示にする */
+    .sidebarWrapper {
+        display: none; 
+    }
+}

@@ -1,57 +1,83 @@
 // /app/components/Header.tsx
 
-import Link from 'next/link';
-import SearchBar from './SearchBar'; // 検索バーをインポート（既に存在すると仮定）
+"use client"; // ★★★ 修正1: Client Component化 ★★★
 
-// Next.jsのServer Componentとして動作します
+import Link from 'next/link';
+import { useState } from 'react'; // ★★★ 修正2: State管理のためにuseStateをインポート ★★★
+import SearchBar from './SearchBar';
+// アイコンを使用する場合、React Iconsなどをインポート
+import { Menu, X, ShoppingCart } from 'lucide-react'; // アイコンライブラリを仮定
 
 export default function Header() {
-    // リンクの共通スタイル
-    const linkStyle: React.CSSProperties = {
-        color: 'white',
-        textDecoration: 'none',
-        marginRight: '20px'
-    };
-    
+    // ★★★ 修正3: モバイルメニューの開閉状態を管理 ★★★
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // インラインスタイルを削除し、グローバルCSSのクラスを使用
     return (
-        <header style={{ 
-            backgroundColor: '#333', 
-            color: 'white', 
-            padding: '10px 20px', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            position: 'sticky', // ヘッダーを固定
-            top: 0,
-            zIndex: 1000,
-        }}>
-            {/* ロゴ/ホームリンク */}
-            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
-                <Link href="/" style={{ color: 'white', textDecoration: 'none' }}>
-                    BIC-SAVING
-                </Link>
+        // style={{...}} を削除し、className="header" を適用
+        <header className="header"> 
+            
+            {/* ヘッダーコンテンツを.containerでラップして中央寄せとパディングを適用 */}
+            <div className="container">
+                <div className="header-content">
+                    
+                    {/* 1. ロゴ/ホームリンク (.header-left の役割) */}
+                    <div className="header-left">
+                        <Link href="/" className="site-title">
+                            BIC-SAVING
+                        </Link>
+                    </div>
+
+                    {/* 2. 検索バー (PCでは中央、スマホでは下に配置) */}
+                    <div className="header-center">
+                        <SearchBar />
+                    </div>
+
+                    {/* 3. ナビゲーション/アクションボタン (.header-right の役割) */}
+                    <div className="header-right">
+                        
+                        {/* PC用のナビゲーション (グローバルCSSで非表示に設定可能) */}
+                        <nav className="pc-nav-links"> 
+                            <Link href="/" className="menu-link">
+                                ホーム
+                            </Link>
+                            <Link href="/sale-blog" className="menu-link">
+                                セール情報
+                            </Link>
+                        </nav>
+                        
+                        {/* カートアイコン（PC/スマホ共通） */}
+                        <Link href="/cart" className="menu-link" aria-label="カート">
+                             <ShoppingCart size={20} /> カート(0)
+                        </Link>
+
+                        {/* ★★★ 修正4: ハンバーガーメニューボタン (スマホでのみ表示) ★★★ */}
+                        <button 
+                            className="menu-button" 
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            aria-label="モバイルメニュー"
+                        >
+                            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+                    </div>
+
+                </div>
             </div>
 
-            {/* 検索バー */}
-            <div style={{ flexGrow: 1, margin: '0 40px', maxWidth: '600px' }}>
-                {/* SearchBarコンポーネントが /app/components/SearchBar.tsx にあると仮定 */}
-                <SearchBar />
-            </div>
-
-            {/* ナビゲーション/アクションボタン */}
-            <nav>
-                <Link href="/" style={linkStyle}>
-                    ホーム
-                </Link>
-                
-                {/* ★★★ セール情報ブログへのリンクを追加 ★★★ */}
-                <Link href="/sale-blog" style={linkStyle}>
-                    セール情報
-                </Link>
-                
-                <Link href="/cart" style={{ color: 'white', textDecoration: 'none' }}>
-                    カート (0)
-                </Link>
+            {/* ★★★ 修正5: モバイルメニュー本体 ★★★ */}
+            <nav className={`mobile-nav ${isMenuOpen ? 'open' : ''}`}>
+                <div className="container">
+                    <Link href="/" className="mobile-link" onClick={() => setIsMenuOpen(false)}>
+                        ホーム
+                    </Link>
+                    <Link href="/sale-blog" className="mobile-link" onClick={() => setIsMenuOpen(false)}>
+                        セール情報
+                    </Link>
+                    <Link href="/login" className="mobile-link" onClick={() => setIsMenuOpen(false)}>
+                        ログイン/登録
+                    </Link>
+                    {/* 他のモバイル専用リンク... */}
+                </div>
             </nav>
         </header>
     );

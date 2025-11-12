@@ -49,6 +49,7 @@ h2 {
 
 /* --- Layout Component --- */
 .container {
+    /* PCでは中央寄せ＆最大幅を適用 */
     max-width: var(--max-width);
     margin: 0 auto;
     padding: 0 var(--spacing-md); /* 左右のパディングのみ */
@@ -83,12 +84,12 @@ h2 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    /* ★修正: 検索窓の邪魔をしないよう幅を固定 */
+    /* 検索窓の邪魔をしないよう幅を固定 */
     flex-shrink: 0; 
 }
 
 .header-center {
-    /* ★追加: 検索窓のためのスペースを確保 */
+    /* 検索窓のためのスペースを確保 */
     flex-grow: 1; 
     display: flex;
     justify-content: center;
@@ -99,7 +100,7 @@ h2 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    /* ★修正: 検索窓の邪魔をしないよう幅を固定 */
+    /* 検索窓の邪魔をしないよう幅を固定 */
     flex-shrink: 0; 
 }
 
@@ -265,11 +266,12 @@ h2 {
     }
 }
 
-@media (max-width: 768px) {
+/* 768px以下のグリッドレイアウトを修正 (より狭いブレークポイントを新設) */
+/* @media (max-width: 768px) {
     .product-grid {
         grid-template-columns: repeat(3, 1fr);
     }
-}
+} */
 
 
 /* --- Product Card Component --- */
@@ -413,4 +415,159 @@ h2 {
     padding: var(--spacing-sm) 0;
     border-top: 1px solid var(--color-border);
     margin-top: var(--spacing-md);
+}
+
+/* ========================================================= */
+/* === レスポンシブ対応 (モバイルファースト) のためのメディアクエリ === */
+/* ========================================================= */
+
+@media (max-width: 768px) {
+    /* --- 1. グローバルレイアウト/コンテナの調整 --- */
+    .container {
+        /* 幅制限を解除し、全幅に近い表示にする */
+        max-width: 100%; 
+        /* 左右のパディングを狭くする */
+        padding: 0 var(--spacing-sm); 
+    }
+    
+    /* --- 2. ヘッダーの調整 (PCナビゲーションの非表示と検索窓の全幅化) --- */
+    .header-content {
+        /* ヘッダー要素を柔軟に折り返す */
+        flex-wrap: wrap; 
+        padding: var(--spacing-sm) 0;
+    }
+
+    .header-left {
+        /* ロゴとタイトルが占めるスペースを確保 */
+        flex-grow: 1;
+    }
+
+    .header-center {
+        /* 検索窓をロゴとアイコンの下に全幅で配置 */
+        order: 3; /* 3番目に配置 */
+        width: 100%;
+        margin: var(--spacing-sm) 0;
+    }
+    
+    .header-right {
+        /* ログイン/カートなどのアイコン群を右側に詰める */
+        order: 2; /* 2番目に配置 */
+        flex-shrink: 0;
+    }
+    
+    /* PC用のナビゲーションリンクを非表示にする (Header.tsxにクラスを適用する必要あり) */
+    /* .pc-nav-links {
+        display: none;
+    } */
+    
+    /* --- 3. サイドバーとページレイアウトの調整 --- */
+    .page-layout {
+        /* サイドバーとメインコンテンツを縦並びにする */
+        flex-direction: column;
+        gap: var(--spacing-md);
+        padding: var(--spacing-md) 0;
+    }
+    
+    .sidebar {
+        /* サイドバーを非表示にする */
+        display: none; 
+    }
+
+    /* --- 4. 商品グリッドの調整 (3列から2列へ) --- */
+    .product-grid {
+        /* 768px以下では3列（既存）または2列に調整 */
+        grid-template-columns: repeat(2, 1fr); /* 2列に変更 */
+        gap: var(--spacing-sm);
+    }
+    
+    /* --- 5. フッターの調整 --- */
+    .footer-content {
+        /* フッターセクションを縦に積み重ねる */
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+    
+    .footer-section {
+        /* 各フッターセクションを全幅にする */
+        min-width: 100%; 
+    }
+}
+
+@media (max-width: 480px) {
+    /* さらに狭い画面での調整（例：商品グリッドの列数を維持） */
+    .product-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* --- Header / Navigation のPC/スマホ切り替え --- */
+.pc-nav-links {
+    display: flex; /* PCでは表示 */
+    gap: var(--spacing-md);
+}
+
+.menu-button {
+    display: none; /* PCでは非表示 */
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text); /* アイコンの色 */
+    padding: 0;
+}
+
+/* --- モバイルメニュー本体のスタイル --- */
+.mobile-nav {
+    display: none;
+    background-color: white;
+    position: absolute;
+    top: 100%; /* ヘッダーの真下に配置 */
+    left: 0;
+    width: 100%;
+    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-md) 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 999;
+}
+
+.mobile-nav.open {
+    display: block;
+}
+
+.mobile-link {
+    display: block;
+    padding: var(--spacing-sm) 0;
+    color: var(--color-text);
+    border-bottom: 1px dashed var(--color-border);
+}
+
+.mobile-link:last-child {
+    border-bottom: none;
+}
+
+
+/* === メディアクエリの修正 (768px以下) === */
+@media (max-width: 768px) {
+    
+    /* 1. Header内のPC用ナビゲーションを非表示にする */
+    .pc-nav-links {
+        display: none; 
+    }
+    
+    /* 2. ハンバーガーボタンを表示する */
+    .menu-button {
+        display: block; 
+    }
+    
+    /* 3. header-contentの調整 (既存のglobals.cssに追加済みですが確認用) */
+    .header-content {
+        flex-wrap: wrap; 
+    }
+    .header-center {
+        order: 3;
+        width: 100%;
+        margin: var(--spacing-sm) 0;
+    }
+    .header-right {
+        order: 2;
+    }
 }
