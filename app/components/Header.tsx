@@ -6,6 +6,13 @@ import SearchBar from './SearchBar'; // 検索バーをインポート（既に�
 // Next.jsのServer Componentとして動作します
 
 export default function Header() {
+    // リンクの共通スタイル
+    const linkStyle: React.CSSProperties = {
+        color: 'white',
+        textDecoration: 'none',
+        marginRight: '20px'
+    };
+    
     return (
         <header style={{ 
             backgroundColor: '#333', 
@@ -33,9 +40,15 @@ export default function Header() {
 
             {/* ナビゲーション/アクションボタン */}
             <nav>
-                <Link href="/" style={{ color: 'white', textDecoration: 'none', marginRight: '20px' }}>
+                <Link href="/" style={linkStyle}>
                     ホーム
                 </Link>
+                
+                {/* ★★★ セール情報ブログへのリンクを追加 ★★★ */}
+                <Link href="/sale-blog" style={linkStyle}>
+                    セール情報
+                </Link>
+                
                 <Link href="/cart" style={{ color: 'white', textDecoration: 'none' }}>
                     カート (0)
                 </Link>
