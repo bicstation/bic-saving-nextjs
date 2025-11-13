@@ -1,6 +1,6 @@
 // /app/components/Header.tsx
 
-"use client"; // ★★★ 修正1: Client Component化 ★★★
+"use client"; // ★★★ 修正1: Client Component化（Hydration Error対策） ★★★
 
 import Link from 'next/link';
 import { useState } from 'react'; // ★★★ 修正2: State管理のためにuseStateをインポート ★★★
@@ -11,6 +11,7 @@ import { Menu, X, ShoppingCart } from 'lucide-react'; // アイコンライブ�
 export default function Header() {
     // ★★★ 修正3: モバイルメニューの開閉状態を管理 ★★★
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "ビック的節約生活";
 
     // インラインスタイルを削除し、グローバルCSSのクラスを使用
     return (
@@ -24,7 +25,7 @@ export default function Header() {
                     {/* 1. ロゴ/ホームリンク (.header-left の役割) */}
                     <div className="header-left">
                         <Link href="/" className="site-title">
-                            BIC-SAVING
+                            {siteName}
                         </Link>
                     </div>
 
