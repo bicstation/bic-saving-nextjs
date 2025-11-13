@@ -1,4 +1,4 @@
-// /app/category/[categoryId]/page.tsx (SEO対策 最終完全版)
+// /app/category/[categoryId]/page.tsx (SEO対策 最終リファクタリング版)
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,8 @@ import type { Metadata } from "next"; // メタデータ生成のためにイン
 // コンポーネントのインポート
 import Pagination from "@/app/components/Pagination";
 import CategorySidebar from "@/app/components/CategorySidebar";
-import ProductCard from "@/app/components/ProductCard";
+// import ProductCard from "@/app/components/ProductCard"; // ★削除: ProductGridを使用
+import ProductGrid from "@/app/components/ProductGrid"; // ★追加: ProductGridを使用
 
 // データ取得関数のインポート
 import { 
@@ -38,7 +39,6 @@ interface CategoryPageProps {
 }
 
 // --- 2. メタデータの生成 (SEO対策) ---
-// ★修正 1-1: params/searchParamsをawaitするために引数を変更し、内部でawaitする
 export async function generateMetadata({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps): Promise<Metadata> {
     
     const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
@@ -50,10 +50,10 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
     
     // カテゴリ名が存在しない場合は、NotFoundを返す代わりに、基本的なメタデータを返す（クロール効率のため）
     if (!categoryName) {
-           return {
-               title: 'カテゴリが見つかりません',
-               description: '指定されたカテゴリは存在しないか、データがありません。',
-           };
+            return {
+                title: 'カテゴリが見つかりません',
+                description: '指定されたカテゴリは存在しないか、データがありません。',
+            };
     }
     
     // 現在のページ番号を取得し、タイトルに含める（ユーザー向け）
@@ -89,7 +89,6 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
 
 
 // --- 3. コンポーネント本体 (型を適用) ---
-// ★修正 1-2: params/searchParamsをawaitするために引数を変更し、内部でawaitする
 export default async function CategoryPage({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps) {
     
     const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
@@ -177,8 +176,6 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
             <main className="page-layout" style={{ 
                 display: 'flex', 
                 gap: '20px', 
-                // maxWidth: '1200px', 
-                // margin: '0 auto', 
                 padding: '20px' }}>
                 {/* 2. Sidebar */}
                 {/* currentCategoryId を渡すことで、サイドバーで階層を自動展開 */}
@@ -212,24 +209,13 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
 
                     <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>📚 {currentCategoryName} の商品一覧 (Page {currentPage})</h1>
 
-                    {/* 商品リスト (グリッド表示) */}
+                    {/* 商品リスト (ProductGrid コンポーネントに置き換え) */}
                     {products.length === 0 ? (
                         <p style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '5px' }}>このカテゴリに商品が見つかりませんでした。</p>
                     ) : (
-                        <div className="product-grid" style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-                            gap: '20px'
-                        }}>
-                            {products.map((product) => {
-                                if (!product || !product.id || !product.name || !product.price) {
-                                    return null;
-                                }
-                                return (
-                                    <ProductCard key={product.id} product={product} />
-                                );
-                            })}
-                        </div>
+                        // ★★★ 修正箇所: ProductGrid を使用して、商品リストの表示を共通化 ★★★
+                        <ProductGrid products={products} />
+                        // ★★★ 修正箇所終了 ★★★
                     )}
 
                     {/* ページネーション */}

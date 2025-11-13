@@ -1,18 +1,11 @@
 // E:\development\nextjs\bic-saving\app\components\BlogSidebar.tsx
 
 import Link from 'next/link';
-// CSSProperties を使用するためにインポート
 import React, { CSSProperties } from 'react'; 
+// ★ WPCategory と WPTag を lib/wordpress からインポート ★
+import { WPCategory, WPTag } from "@/lib/wordpress"; 
 
-// WordPress APIから取得するカテゴリ（ターム）の型
-// ★★★ 実際には lib/wordpress からインポートすべき ★★★
-interface WPCategory {
-    id: number;
-    name: string;
-    slug: string;
-    count: number;
-}
-// ★★★ 実際には lib/bic-saving からインポートすべき ★★★
+// ★★★ 実際には lib/bic-saving からインポートすべき ★★★ (ECサイトのカテゴリ型はそのまま残します)
 interface Category {
     id: number;
     name: string;
@@ -22,31 +15,41 @@ interface Category {
 
 // Propsの型定義を修正
 interface BlogSidebarProps {
-    wpCategories: WPCategory[];
-    ecCategories: Category[]; // ECカテゴリを追加
-    // ★★★ 修正1: layout.tsxから渡される style prop の型定義を追加 ★★★
+    // ★★★ 修正1: layout.tsxに合わせて Props 名を 'categories' と 'tags' に変更 ★★★
+    categories: WPCategory[]; // <- layout.tsx の safeWPCategories に対応
+    ecCategories: Category[]; 
     style?: CSSProperties; 
+    tags: WPTag[];          // <- layout.tsx の safeWPTags に対応
 }
 
-// ★★★ 修正2: props として style を受け取る ★★★
-export default function BlogSidebar({ wpCategories, ecCategories, style }: BlogSidebarProps) {
+// ★★★ 修正2: props として受け取る引数の名前を修正 ★★★
+export default function BlogSidebar({ categories, ecCategories, tags, style }: BlogSidebarProps) {
     
-    // 1. WordPressカテゴリの処理 (wpCategoriesを使用)
-    const filteredWPCategories = wpCategories.filter(cat => cat.count > 0 && cat.slug !== 'uncategorized');
+    // 1. WordPressカテゴリの処理
+    // ★★★ 修正3: 変数名を categories に変更 ★★★
+    const filteredWPCategories = categories.filter(cat => cat.count > 0 && cat.slug !== 'uncategorized');
     const sortedWPCategories = [...filteredWPCategories]
         .sort((a, b) => b.count - a.count)
         .slice(0, 10); 
     
-    // 2. ECカテゴリの処理（トップ5件のみ表示する例）
+    // 2. ECカテゴリの処理（トップ5件のみ表示する例）(変更なし)
     const topECCategories = ecCategories.slice(0, 5);
+
+    // ★★★ 修正4: WordPressタグの処理（記事数が多いトップ10件のみ表示） ★★★
+    // エラー対策: tagsが配列でない場合に備え、空の配列 [] を使用
+    // ★★★ 修正5: 変数名を tags に変更 ★★★
+    const tagsToProcess = Array.isArray(tags) ? tags : [];
+    
+    const sortedWPTags = [...tagsToProcess] 
+        .filter(tag => tag.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10); 
 
 
     return (
-        // ★★★ 修正3: asideタグのインラインスタイルを削除し、layout.tsxから渡された style prop を適用 ★★★
-        // layout.tsxで幅とflex設定が制御されます。
         <aside className="blog-sidebar" style={style}>
             
-            {/* 1. サイト全体メニュー (インラインスタイルを削除) */}
+            {/* 1. サイト全体メニュー (変更なし) */}
             <section className="sidebar-section">
                 <h3 className="section-title menu-title">
                     サイト全体メニュー
@@ -59,7 +62,7 @@ export default function BlogSidebar({ wpCategories, ecCategories, style }: BlogS
                 </ul>
             </section>
             
-            {/* 2. 動的に取得したブログカテゴリ (WordPress) (インラインスタイルを削除) */}
+            {/* 2. 動的に取得したブログカテゴリ (WordPress) (変更なし) */}
             <section className="sidebar-section">
                 <h3 className="section-title">
                     ブログカテゴリ
@@ -77,8 +80,25 @@ export default function BlogSidebar({ wpCategories, ecCategories, style }: BlogS
                     {sortedWPCategories.length === 0 && <p className="no-data-message">カテゴリデータが見つかりませんでした。</p>}
                 </ul>
             </section>
+
+            {/* 3. 人気のタグセクションを追加 (変更なし) */}
+            <section className="sidebar-section tag-section">
+                <h3 className="section-title">
+                    人気のタグ
+                </h3>
+                <ul className="link-list tag-list">
+                    {sortedWPTags.map(tag => (
+                        <li key={tag.id}>
+                            <Link href={`/sale-blog?tag=${tag.id}`}>
+                                {tag.name} ({tag.count})
+                            </Link>
+                        </li>
+                    ))}
+                    {sortedWPTags.length === 0 && <p className="no-data-message">タグデータが見つかりませんでした。</p>}
+                </ul>
+            </section>
             
-            {/* 3. メインのコンテンツ（ECサイト）カテゴリを追加 (インラインスタイルを削除) */}
+            {/* 4. メインのコンテンツ（ECサイト）カテゴリ (変更なし) */}
             <section className="sidebar-section">
                 <h3 className="section-title ec-title">
                     🛒 ECサイト 商品カテゴリ
@@ -99,8 +119,8 @@ export default function BlogSidebar({ wpCategories, ecCategories, style }: BlogS
                     </li>
                 </ul>
             </section>
-
-            {/* 4. ブログについての説明 (インラインスタイルを削除) */}
+            
+            {/* 5. ブログについての説明 (変更なし) */}
             <section className="sidebar-section info-section">
                 <h3 className="section-title">
                     ブログについて

@@ -4,62 +4,64 @@
 const WORDPRESS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/posts";
 
 // --- アフィリエイト定数 ---
-// メルマガに記載されていたリンクシェアIDを暫定的に使用。
-// 実際にはあなたのIDに置き換えてください。
 const LINKSYNERGY_ID = "R9f1WByH5RE"; 
-const DELL_OFFER_ID = "39250"; // DellのオファーID
-const DELL_PROMO_OFFER_ID = "10003522"; // 例: 売れ筋・広告掲載モデルへのリンクID
+const DELL_OFFER_ID = "39250"; 
+const DELL_PROMO_OFFER_ID = "10003522"; 
 
 // -----------------------------------------------------------
 // 1. 記事 (Post) 関連の型定義
 // -----------------------------------------------------------
 
-// 描画されたコンテンツの基本型 (title, content, excerptなどで共通)
 export interface RenderedContent {
-    rendered: string;
-    protected: boolean; // JSONデータで確認
+    rendered: string;
+    protected: boolean; 
 }
-
-// アイキャッチ画像 (FeaturedMedia) の型
 export interface FeaturedMedia {
-    source_url: string;
-    media_details: {
-        width: number;
-        height: number;
-    }
+    source_url: string;
+    media_details: {
+        width: number;
+        height: number;
+    }
 }
-
-// 記事データ (Post) の型
 export interface Post {
-    id: number;
-    slug: string;
-    link: string; 
-    title: RenderedContent;
-    content: RenderedContent;
-    date: string;
-    categories: number[]; // カテゴリIDの配列を追加
-    featured_media_url?: string; // アイキャッチURLを直接持つプロパティ (helper関数で設定される場合に使用)
-    
-    // excerpt プロパティ全体をオプショナル ('?') にすることで、赤線が消えます。
-    excerpt?: RenderedContent; 
-    
-    // _embed パラメータで取得される画像情報用のフィールド
-    _embedded?: {
-        'wp:featuredmedia'?: FeaturedMedia[];
-    };
+    id: number;
+    slug: string;
+    link: string; 
+    title: RenderedContent;
+    content: RenderedContent;
+    date: string;
+    categories: number[]; 
+    featured_media_url?: string; 
+    excerpt?: RenderedContent; 
+    _embedded?: {
+        'wp:featuredmedia'?: FeaturedMedia[];
+    };
 }
 
 
 // -----------------------------------------------------------
-// 2. カテゴリ (Category) 関連の型定義
+// 2. カテゴリ・タグ関連の型定義
 // -----------------------------------------------------------
 
-// WordPress カテゴリ（ターム）の型
 export interface WPCategory {
-    id: number;
-    name: string;
-    slug: string;
-    count: number; // そのカテゴリに属する記事の数
+    id: number;
+    name: string;
+    slug: string;
+    count: number; 
+}
+
+// ★★★ 追加: WordPress タグの型 ★★★
+export interface WPTag {
+    id: number;
+    name: string;
+    slug: string;
+    count: number; 
+}
+
+// ★★★ 追加: 記事フィルタリング用のパラメータ型 ★★★
+export interface FilterParams {
+    category?: string | number; // カテゴリID
+    tag?: string | number;      // タグID
 }
 
 
@@ -68,57 +70,85 @@ export interface WPCategory {
 // -----------------------------------------------------------
 
 /**
- * 全記事一覧を取得する (アイキャッチ情報を含む)
- */
-export async function getSalePosts(): Promise<Post[]> {
-    // _embed を追加してアイキャッチ画像のURLを記事データに含める
-    const res = await fetch(`${WORDPRESS_API_URL}?_embed`, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress posts: ${res.statusText}`);
-    }
+ * 全記事一覧を取得する (カテゴリID/タグIDによるフィルタリングに対応)
+ * @param params - オプションのフィルタリングパラメータ (categoryまたはtag)
+ */
+// ★★★ 修正: パラメータを FilterParams 型に変更し、タグ/カテゴリに対応 ★★★
+export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
+    let url = `${WORDPRESS_API_URL}?_embed`;
 
-    return res.json();
+    // カテゴリIDが存在する場合、APIクエリパラメータに追加
+    if (params?.category) {
+        url += `&categories=${params.category}`;
+    }
+    
+    // タグIDが存在する場合、APIクエリパラメータに追加
+    if (params?.tag) {
+        url += `&tags=${params.tag}`;
+    }
+    
+    const res = await fetch(url, {
+        cache: 'force-cache'
+    });
+    
+    if (!res.ok) {
+        throw new Error(`Failed to fetch WordPress posts: ${res.statusText}`);
+    }
+
+    return res.json();
 }
 
 /**
- * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
- */
+ * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
+ */
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-    // スラッグでフィルタリングし、_embed を追加
-    const res = await fetch(`${WORDPRESS_API_URL}?slug=${slug}&_embed`);
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch post by slug: ${res.statusText}`);
-    }
+    const res = await fetch(`${WORDPRESS_API_URL}?slug=${slug}&_embed`);
+    
+    if (!res.ok) {
+        throw new Error(`Failed to fetch post by slug: ${res.statusText}`);
+    }
 
-    const posts: Post[] = await res.json();
-    
-    return posts.length > 0 ? posts[0] : null;
+    const posts: Post[] = await res.json();
+    
+    return posts.length > 0 ? posts[0] : null;
 }
 
 /**
- * カテゴリ一覧を取得する
- */
+ * カテゴリ一覧を取得する
+ */
 export async function getWPCategories(): Promise<WPCategory[]> {
-    // WordPressのカテゴリAPIエンドポイント
-    const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
+    const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
 
-    const res = await fetch(CATEGORIES_API_URL, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress categories: ${res.statusText}`);
-    }
+    const res = await fetch(CATEGORIES_API_URL, {
+        cache: 'force-cache'
+    });
+    
+    if (!res.ok) {
+        throw new Error(`Failed to fetch WordPress categories: ${res.statusText}`);
+    }
 
-    return res.json();
+    return res.json();
 }
 
 /**
- * ★★★ 修正: generateStaticParamsで必要なため追加 ★★★
+ * ★★★ 追加: タグ一覧を取得する関数 ★★★
+ */
+export async function getWPTags(): Promise<WPTag[]> {
+    const TAGS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/tags";
+
+    // 記事のカウントが0より大きいタグのみを取得
+    const res = await fetch(`${TAGS_API_URL}?orderby=count&order=desc&hide_empty=true&per_page=100`, {
+        cache: 'force-cache'
+    });
+    
+    if (!res.ok) {
+        throw new Error(`Failed to fetch WordPress tags: ${res.statusText}`);
+    }
+
+    return res.json();
+}
+
+/**
  * 全記事一覧を取得する (count件まで)
  */
 export async function getPosts(count: number = 100): Promise<Post[]> {
@@ -130,12 +160,11 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
         throw new Error(`Failed to fetch WordPress posts for static params: ${res.statusText}`);
     }
 
-    // featured_media_urlのカスタムプロパティを追加
     const rawPosts: any[] = await res.json();
     return rawPosts.map(post => ({
         ...post,
-        categories: post.categories, // カテゴリIDをそのまま使用
-        featured_media_url: getFeaturedImageUrl(post as Post) // ヘルパー関数でURLを設定
+        categories: post.categories, 
+        featured_media_url: getFeaturedImageUrl(post as Post) 
     }));
 }
 
@@ -145,7 +174,7 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
 // -----------------------------------------------------------
 
 /**
- * ★★★ 修正: カテゴリIDからカテゴリ名を取得する関数を追加 ★★★
+ * カテゴリIDからカテゴリ名を取得する関数
  */
 export async function getCategoryNameById(id: number): Promise<string | null> {
     const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
@@ -166,15 +195,36 @@ export async function getCategoryNameById(id: number): Promise<string | null> {
     }
 }
 
+/**
+ * ★★★ 追加: タグIDからタグ名を取得する関数 ★★★
+ */
+export async function getTagNameById(id: number): Promise<string | null> {
+    const TAGS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/tags";
+
+    const res = await fetch(`${TAGS_API_URL}/${id}`, {
+        cache: 'force-cache'
+    });
+    
+    if (!res.ok) {
+        return null; 
+    }
+    
+    try {
+        const tagData = await res.json();
+        return tagData.name || null;
+    } catch (e) {
+        return null;
+    }
+}
+
 
 /**
- * 記事データからアイキャッチ画像URLを抽出する
- */
+ * 記事データからアイキャッチ画像URLを抽出する
+ */
 export function getFeaturedImageUrl(post: Post): string | null {
-    const media = post._embedded?.['wp:featuredmedia'];
-    if (media && media.length > 0) {
-        // メイン画像（通常は最初の要素）のURLを返す
-        return media[0].source_url; 
-    }
-    return null;
+    const media = post._embedded?.['wp:featuredmedia'];
+    if (media && media.length > 0) {
+        return media[0].source_url; 
+    }
+    return null;
 }

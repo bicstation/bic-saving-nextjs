@@ -5,7 +5,8 @@ import React from "react";
 import Script from "next/script";
 
 // WordPress API連携に必要な関数と型をインポート
-import { getWPCategories, WPCategory } from "@/lib/wordpress";
+// ★ 修正1: getWPTags, WPTag を追加インポート ★
+import { getWPCategories, WPCategory, getWPTags, WPTag } from "@/lib/wordpress"; 
 // ECサイト API連携に必要な関数と型をインポート
 import { getTopCategories, Category } from "@/lib/bic-saving";
 
@@ -23,39 +24,48 @@ export default async function SaleBlogLayout({
 }) {
   let wpCategories: WPCategory[] = []; // WordPressカテゴリ
   let ecCategories: Category[] = []; // ECサイトカテゴリ
+  let wpTags: WPTag[] = [];           // ★ 修正2: WordPressタグの変数を追加 ★
 
   try {
-    // WordPressカテゴリとECサイトカテゴリのデータを並列で取得
-    const [wpData, ecData] = await Promise.all([
-      getWPCategories(),
-      getTopCategories(),
+    // WordPressカテゴリ、ECサイトカテゴリ、WordPressタグのデータを並列で取得
+    // ★ 修正3: Promise.all に getWPTags() を追加 ★
+    const [wpCategoryData, ecData, wpTagData] = await Promise.all([
+      getWPCategories().catch(() => []), // 失敗時も空の配列を返す
+      getTopCategories().catch(() => []), 
+      getWPTags().catch(() => []),      
     ]);
 
-    wpCategories = wpData;
+    wpCategories = wpCategoryData;
     ecCategories = ecData;
+    wpTags = wpTagData; // ★ タグデータをセット ★
   } catch (error) {
-    // データ取得に失敗した場合でも、エラーを出力し、レンダリングは続行
+    // Promise.all 内の catch で個別のエラーは処理されるが、念のため
     console.error("Failed to fetch sidebar data:", error);
   }
 
+  // ★ 修正4: BlogSidebar が必要とするプロパティが配列であることを保証する ★
+  // (wpTags is not iterable 対策の保険)
+  const safeWpCategories = Array.isArray(wpCategories) ? wpCategories : [];
+  const safeEcCategories = Array.isArray(ecCategories) ? ecCategories : [];
+  const safeWpTags = Array.isArray(wpTags) ? wpTags : [];
+
+
   return (
-    // Fragment (<>...</>) を使用して、<div> と <Script> をラップ
     <>
       {/* メインコンテンツとサイドバーをフレックスボックスで並べるコンテナ */}
-      {/* 修正点: gap: '40px' を追加し、padding で左右の余白も確保 */}
       <div style={{ display: "flex", maxWidth: "1600px", margin: "0 auto", padding: "20px", gap: '40px' }}>
         
-        {/* 1. 左サイドバーエリア */}
+        {/* 1. 左サイドバーエリア (BlogSidebarを追加) */}
         {/* 修正点: flexGrow: 0, flexShrink: 0, width: '280px' で幅を固定 */}
-        {/* BlogSidebarにstyleプロパティを渡す。これにはBlogSidebarコンポーネント側の型定義の修正が必要です。 */}
-        <BlogSidebar
-          wpCategories={wpCategories} // WordPressカテゴリ
-          ecCategories={ecCategories} // ECサイトカテゴリ
-          style={{ flexGrow: 0, flexShrink: 0, width: '280px' }} // サイドバーの幅を固定
+        <BlogSidebar 
+          wpCategories={safeWpCategories} 
+          ecCategories={safeEcCategories}
+          wpTags={safeWpTags} // ★ タグデータを渡す ★
+          style={{ flex: '0 0 280px', minWidth: '280px' }} // 幅を固定
         />
 
+
         {/* 2. メインコンテンツエリア (children) */}
-        {/* 修正点: flexGrow: 1 で残りのスペースを占有、paddingLeft を削除/0 にして gap に任せる */}
         <div style={{ flexGrow: 1, minWidth: "0", paddingLeft: "0" }}>
             {children}
         </div>

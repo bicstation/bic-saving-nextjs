@@ -1,31 +1,38 @@
-// /types/index.ts (updated_at 追記修正版)
-// fdfds
+// /types/index.ts (最終修正版: 型の完全統合)
+
 // --- 1. 商品関連の型 ---
 
-// ★APIから返される生データ用の型 (APIのキー名に合わせる)
+// ★APIから返される生データ用の型
 export interface ApiProduct {
     id: number;
-    product_name: string; // APIキー
-    price: string | number; // APIキー (文字列の可能性あり)
-    image_url: string; // APIキー
-    description?: string | null; // APIキー (nullの可能性も考慮)
-    category?: number | null; // 商品リストAPIで使用
-    // ★追加: 単一商品APIのレスポンスに対応
+    product_name: string;
+    price: string | number;
+    image_url: string;
+    description?: string | null;
+    category?: number | null; 
     final_category_id?: number | null; 
-    // ★★★ 追記: Sitemap, RSS対応のため updated_at を追加 ★★★
     updated_at?: string; 
     [key: string]: any;
 }
 
 // ★アプリケーション内部で利用する統一された型 (ロジック・表示に使用)
 export interface Product {
-    id: number;
-    name: string;    // 統一名
-    price: number;   // 統一名 (数値に変換済み)
-    image: string;   // 統一名
+    // ★修正1: /lib/bic-saving.ts のダミーデータに合わせ、string | number を許容
+    id: number | string; 
+    name: string;    
+    price: number;   
+    // ★修正2: /lib/bic-saving.ts のダミーデータに合わせ、必須ではない場合は '?' をつける
+    image?: string;   
     description?: string;
-    category?: number | null; // 統一名 (nullの可能性も考慮)
-    // ★★★ 追記: Sitemap, RSS対応のため updated_at を追加 ★★★
+    
+    // ★修正3: /lib/lib/bic-saving.ts で使用され、MakerPageに渡されていたプロパティを追加 ★
+    makerSlug: string; 
+    makerName: string; 
+    
+    // category の型を柔軟にし、/lib/bic-saving.ts との不整合を解消
+    category?: string | number | null; 
+    
+    // Sitemap, RSS対応のため updated_at を追加
     updated_at?: string; 
 }
 
@@ -40,7 +47,7 @@ export interface ProductData {
     totalPages: number;
 }
 
-// --- 2. カテゴリ関連の型 ---
+// --- 2. カテゴリ・メーカー関連の型 ---
 
 // カテゴリの型
 export interface Category {
@@ -49,6 +56,12 @@ export interface Category {
     category_name?: string; 
     product_count?: number; 
     children?: Category[]; 
+}
+
+// ★修正4: Maker型も /types/index に定義し、/lib/bic-saving.ts でインポートできるようにする ★
+export interface Maker {
+    name: string;
+    slug: string;
 }
 
 // --- 3. ページPropsの型 ---
