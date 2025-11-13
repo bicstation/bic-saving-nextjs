@@ -1,36 +1,47 @@
-// /app/components/ProductCard.tsx
+// /app/components/ProductCard.tsx (divをルート要素に変更)
+
 import React from 'react';
 import Link from 'next/link'; 
-// ★修正: Product型とProductCardProps型をインポート
 import { Product, ProductCardProps } from "@/types/index";
 
 // Component
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+    // グリッドアイテムとしてのルート要素を div に変更
     return (
         <div className="product-card">
-            {/* カード全体を商品詳細ページへのリンクにする */}
-            <Link href={`/product/${product.id}`} passHref>
-                <div className="product-image-wrapper">
-                    <img 
-                        // ★修正: product.image (統一されたプロパティ名) を使用
-                        src={product.image || '/placeholder.png'} 
-                        // ★修正: product.name (統一されたプロパティ名) を使用
-                        alt={product.name} 
-                        className="product-image" 
-                    />
-                </div>
-                <div className="product-info">
-                    {/* ★修正: product.name (統一されたプロパティ名) を使用 */}
-                    <p className="product-name">{product.name}</p>
+            
+            {/* リンクを div 内に配置し、カードの全体的なスタイルは div が持つ */}
+            <Link 
+                href={`/product/${product.id}`} 
+                className="block h-full" // カード全体をクリック可能にするために block h-full を適用
+                passHref
+            >
+                {/* カード内部のコンテンツを縦に整えるための flex-col は維持 */}
+                <div className="flex flex-col h-full justify-between">
                     
-                    <p className="product-price">
-                        {/* ★修正: product.price (数値型) を使用 */}
-                        {product.price.toLocaleString()}円
-                    </p>
-                    <p className="product-seller-info">
-                        {/* 仮の出品者情報 */}
-                        {product.category ? `カテゴリ: ${product.category}` : "詳細情報あり"}
-                    </p>
+                    {/* 1. 画像セクション */}
+                    <div className="product-image-wrapper">
+                        <img 
+                            src={product.image || product.image_url || '/placeholder.png'} 
+                            alt={product.name} 
+                            className="product-image" 
+                        />
+                    </div>
+                    
+                    {/* 2. 情報セクション (flex-growでスペースを占める) */}
+                    <div className="product-info flex-grow">
+                        <p className="product-name">{product.name}</p>
+                    </div>
+                    
+                    {/* 3. 価格・情報セクション (mt-autoで下に寄せる) */}
+                    <div className="mt-auto">
+                        <p className="product-price">
+                            {product.price ? product.price.toLocaleString() : 'N/A'}円
+                        </p>
+                        <p className="product-seller-info text-xs text-gray-500">
+                            {product.category ? `カテゴリ: ${product.category}` : "詳細情報あり"}
+                        </p>
+                    </div>
                 </div>
             </Link>
         </div>

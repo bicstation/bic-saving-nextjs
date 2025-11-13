@@ -49,20 +49,17 @@ export default function SearchBar() {
     };
 
     return (
-        <form onSubmit={handleSearch} style={{ display: 'flex' }}>
+        // ★修正: インラインFlexboxを削除し、.search-input-containerクラスを適用
+        <form onSubmit={handleSearch} className="search-input-container">
             <input
                 type="text"
                 placeholder="商品名やキーワードで検索"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '16px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '4px 0 0 4px', 
-                    flexGrow: 1 
-                }}
+                // ★修正: .search-inputクラスを適用し、インラインstyleを削除
+                className="search-input"
             />
+            {/* ボタンは既存のCSS設計に合わせてインラインstyleの一部を維持/調整 */}
             <button 
                 type="submit"
                 style={{

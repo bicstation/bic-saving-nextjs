@@ -10,7 +10,7 @@
     --spacing-sm: 8px;
     --spacing-md: 16px;
     --spacing-lg: 24px;
-    --max-width: 1200px;
+    --max-width: 2560px; /* ★修正: 最大幅を非常に大きくし、全幅を可能に ★ */
 }
 
 /* Base Styles */
@@ -48,22 +48,20 @@ h2 {
 }
 
 /* --- Layout Component --- */
+/* ★★ 修正: page-layoutにdisplay:flexとデフォルトのflex-direction: columnを追加 ★★ */
+.page-layout {
+    display: flex; /* Flexboxを有効化 (必須) */
+    flex-direction: column; /* デフォルトで縦積み (モバイル優先) */
+    flex-wrap: wrap; /* 子要素のw-fullと組み合わせて使用 */
+    gap: var(--spacing-lg); /* ギャップもデフォルトで適用 */
+}
+
 .container {
-    /* PCでは中央寄せ＆最大幅を適用 */
-    max-width: var(--max-width);
+    /* ★修正: max-widthを削除/無効化。親要素が全幅を占め、パディングのみを制御 ★ */
+    /* max-width: var(--max-width); <--- この行を削除/コメントアウト */
+    width: 100%; /* 親要素に依存 */
     margin: 0 auto;
-    padding: 0 var(--spacing-md); /* 左右のパディングのみ */
-}
-
-.page-layout { 
-    display: flex;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg) 0;
-}
-
-.main-content {
-    flex-grow: 1;
-    padding: 0;
+    padding: 0 var(--spacing-lg); /* 左右のパディングを維持 */
 }
 
 /* --- Header / Navigation --- */
@@ -84,12 +82,10 @@ h2 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    /* 検索窓の邪魔をしないよう幅を固定 */
     flex-shrink: 0; 
 }
 
 .header-center {
-    /* 検索窓のためのスペースを確保 */
     flex-grow: 1; 
     display: flex;
     justify-content: center;
@@ -100,7 +96,6 @@ h2 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    /* 検索窓の邪魔をしないよう幅を固定 */
     flex-shrink: 0; 
 }
 
@@ -155,15 +150,15 @@ h2 {
 }
 
 
-/* --- Aside / Category List --- */
+/* --- Aside / Category List (Tailwindで制御されない内部構造のみを維持) --- */
 .sidebar {
-    width: 250px;
+    width: 280px; /* サイドバーの固定幅を定義 */
     flex-shrink: 0;
-    padding: var(--spacing-md);
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     align-self: flex-start;
+    background-color: white;
+    padding: var(--spacing-md);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar h3 {
@@ -252,26 +247,12 @@ h2 {
 
 
 /* --- Product List / Grid Layout --- */
-.product-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr); 
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-md);
-    margin-bottom: var(--spacing-lg); 
+/* Tailwindのgrid-cols-6に任せるため、カスタムグリッド定義は削除。*/
+/* メインコンテンツはpage-layoutのflex-grow: 1によって残りすべてを占める */
+.main-content {
+    flex-grow: 1;
+    min-width: 0;
 }
-
-@media (max-width: 1024px) {
-    .product-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-/* 768px以下のグリッドレイアウトを修正 (より狭いブレークポイントを新設) */
-/* @media (max-width: 768px) {
-    .product-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-} */
 
 
 /* --- Product Card Component --- */
@@ -284,9 +265,11 @@ h2 {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     transition: box-shadow 0.2s, transform 0.2s;
     height: 100%; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: space-between; 
+    
+    /* 🚨 6列表示を妨げる全ての幅設定を打ち消し、grid-itemとしての振る舞いを強制 🚨 */
+    display: block !important; /* グリッドアイテムとして振る舞うことを保証 */
+    width: auto !important; /* 幅を自動計算させ、100%の強制を解除 */
+    max-width: none !important; /* 最大幅の制限も解除し、グリッドに任せる */
 }
 
 .product-card:hover {
@@ -424,81 +407,70 @@ h2 {
 @media (max-width: 768px) {
     /* --- 1. グローバルレイアウト/コンテナの調整 --- */
     .container {
-        /* 幅制限を解除し、全幅に近い表示にする */
         max-width: 100%; 
-        /* 左右のパディングを狭くする */
         padding: 0 var(--spacing-sm); 
     }
     
-    /* --- 2. ヘッダーの調整 (PCナビゲーションの非表示と検索窓の全幅化) --- */
+    /* --- 2. ヘッダーの調整 --- */
     .header-content {
-        /* ヘッダー要素を柔軟に折り返す */
         flex-wrap: wrap; 
         padding: var(--spacing-sm) 0;
     }
 
     .header-left {
-        /* ロゴとタイトルが占めるスペースを確保 */
         flex-grow: 1;
     }
 
     .header-center {
-        /* 検索窓をロゴとアイコンの下に全幅で配置 */
-        order: 3; /* 3番目に配置 */
+        order: 3;
         width: 100%;
         margin: var(--spacing-sm) 0;
     }
     
     .header-right {
-        /* ログイン/カートなどのアイコン群を右側に詰める */
-        order: 2; /* 2番目に配置 */
+        order: 2;
         flex-shrink: 0;
     }
     
-    /* PC用のナビゲーションリンクを非表示にする (Header.tsxにクラスを適用する必要あり) */
-    /* .pc-nav-links {
-        display: none;
-    } */
-    
-    /* --- 3. サイドバーとページレイアウトの調整 --- */
-    .page-layout {
-        /* サイドバーとメインコンテンツを縦並びにする */
-        flex-direction: column;
-        gap: var(--spacing-md);
-        padding: var(--spacing-md) 0;
-    }
-    
+    /* --- 3. サイドバーとページレイアウトの調整 (モバイル: 縦積み) --- */
     .sidebar {
-        /* サイドバーを非表示にする */
-        display: none; 
+        display: none; /* サイドバーは非表示 */
     }
 
-    /* --- 4. 商品グリッドの調整 (3列から2列へ) --- */
-    .product-grid {
-        /* 768px以下では3列（既存）または2列に調整 */
-        grid-template-columns: repeat(2, 1fr); /* 2列に変更 */
-        gap: var(--spacing-sm);
-    }
-    
     /* --- 5. フッターの調整 --- */
     .footer-content {
-        /* フッターセクションを縦に積み重ねる */
         flex-direction: column;
         gap: var(--spacing-md);
     }
     
     .footer-section {
-        /* 各フッターセクションを全幅にする */
         min-width: 100%; 
+    }
+    
+    /* 1. Header内のPC用ナビゲーションを非表示にする */
+    .pc-nav-links {
+        display: none; 
+    }
+    
+    /* 2. ハンバーガーボタンを表示する */
+    .menu-button {
+        display: block; 
     }
 }
 
-@media (max-width: 480px) {
-    /* さらに狭い画面での調整（例：商品グリッドの列数を維持） */
-    .product-grid {
-        grid-template-columns: repeat(2, 1fr);
+/* ★★ 修正: 769px以上での横並びを強制する (デスクトップでの縦積み問題解決) ★★ */
+@media (min-width: 769px) {
+    .page-layout {
+        /* display: flex はベースで定義済み */
+        flex-direction: row; /* 横並びを保証する */
+        flex-wrap: nowrap;
+    }
+    
+    .sidebar {
+        display: block !important;
     }
 }
+
 
 /* --- Header / Navigation のPC/スマホ切り替え --- */
 .pc-nav-links {
@@ -520,7 +492,7 @@ h2 {
     display: none;
     background-color: white;
     position: absolute;
-    top: 100%; /* ヘッダーの真下に配置 */
+    top: 100%; 
     left: 0;
     width: 100%;
     border-top: 1px solid var(--color-border);
@@ -542,32 +514,4 @@ h2 {
 
 .mobile-link:last-child {
     border-bottom: none;
-}
-
-
-/* === メディアクエリの修正 (768px以下) === */
-@media (max-width: 768px) {
-    
-    /* 1. Header内のPC用ナビゲーションを非表示にする */
-    .pc-nav-links {
-        display: none; 
-    }
-    
-    /* 2. ハンバーガーボタンを表示する */
-    .menu-button {
-        display: block; 
-    }
-    
-    /* 3. header-contentの調整 (既存のglobals.cssに追加済みですが確認用) */
-    .header-content {
-        flex-wrap: wrap; 
-    }
-    .header-center {
-        order: 3;
-        width: 100%;
-        margin: var(--spacing-sm) 0;
-    }
-    .header-right {
-        order: 2;
-    }
 }

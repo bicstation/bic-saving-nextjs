@@ -1,129 +1,162 @@
-// /app/maker/[makerSlug]/page.tsx (メーカー機能・ページング統合版)
+// /app/maker/[makerSlug]/page.tsx
 
-import React, { Suspense } from 'react'; // Suspenseを追加
+import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
 import Link from 'next/link';
-import type { Metadata } from 'next'; // Metadataをインポート
 
-// ★修正3: データ取得関数を全て /lib/data からインポート (統合後のファイル名) ★
+// データ取得ロジック
 import { 
     getProductsByMaker, 
     getMakerNameBySlug, 
     getAllMakers,
-    getCategories, // ★追加: サイドバー表示用
-} from '@/lib/data'; 
+    getCategories, // サイドバーに渡すため
+} from "@/lib/data"; 
 
-// ★修正3: コンポーネント、型定義をインポート
-import { Maker, MakerPageProps } from '@/types/index';
-import ProductGrid from '@/app/components/ProductGrid'; 
-import ProductSidebar from '@/app/components/ProductSidebar'; // ★追加: サイドバー
-import Pagination from '@/app/components/Pagination'; // ★追加: ページネーション
+// コンポーネント
+import ProductCard from '@/app/components/ProductCard';
+import Pagination from '@/app/components/Pagination';
+import CategorySidebar from '@/app/components/CategorySidebar'; // 統合されたサイドバー
 
-// ====================================================================
-// メタデータ生成
-// ====================================================================
 
-export async function generateMetadata({ params }: MakerPageProps): Promise<Metadata> {
-    const makerName = await getMakerNameBySlug(params.makerSlug) || 'メーカー不明';
-    
-    return {
-        title: `${makerName}の商品一覧 | bic-saving.com`,
-        description: `${makerName}の最新セール商品、お得な情報をご紹介します。`,
-    };
-}
+// --- 1. ダイナミックルーティングの静的生成 (SSG) ---
 
-// ====================================================================
-// 静的生成パラメータ
-// ====================================================================
-
+/**
+ * 事前ビルドするメーカーのページパスを生成
+ */
 export async function generateStaticParams() {
-    const makers: Maker[] = await getAllMakers(); 
+    const makers = await getAllMakers();
+    // デバッグのため、ログは削除しましたが、必要に応じてconsole.log(makers)を入れて確認してください。
     
-    return makers.map((maker: Maker) => ({ 
-        makerSlug: maker.slug
+    // スラッグをエンコードせずにそのまま返す (Next.jsが処理)
+    return makers.map(maker => ({
+        makerSlug: maker.slug,
     }));
 }
 
 
-// ====================================================================
-// ページコンポーネント本体
-// ====================================================================
+// --- 2. メタデータ生成 (SEO対策) ---
 
-// ★修正2: searchParams を受け取るように型を拡張 (MakerPagePropsは/types/indexで定義されていると仮定)
+interface MakerPageProps {
+    params: { makerSlug: string };
+    searchParams: { page?: string };
+}
+
+/**
+ * ページの動的なMetadataを生成
+ */
+export async function generateMetadata({ params }: MakerPageProps): Promise<Metadata> {
+    
+    // URLエンコードされたスラッグをデコード
+    const decodedSlug = decodeURIComponent(params.makerSlug);
+    
+    // デバッグログが /lib/data.ts に含まれていることを確認
+    const makerName = await getMakerNameBySlug(decodedSlug); 
+    
+    if (!makerName) {
+        // メーカー名が見つからない場合はNotFoundを返すか、一般的なメタデータを返す
+        return {
+            title: 'メーカーが見つかりません',
+            description: '指定されたメーカーの商品は存在しません。',
+        };
+    }
+
+    const title = `${makerName}の商品一覧`;
+    const description = `${makerName}の最新商品、人気商品を多数取り揃えています。価格比較や詳細情報はこちらから。`;
+
+    return {
+        title,
+        description,
+        openGraph: {
+            title,
+            description,
+        },
+    };
+}
+
+
+// --- 3. メインコンポーネント (Server Component) ---
+
 export default async function MakerPage({ params, searchParams }: MakerPageProps) {
-    const { makerSlug } = params;
+    
+    // ページネーションとスラッグの処理
+    const currentPage = Number(searchParams.page) || 1;
+    const limit = 12; // 1ページあたりの商品数
+    
+    // URLエンコードされたスラッグをデコード
+    const makerSlug = decodeURIComponent(params.makerSlug);
 
-    // --- ページング処理 (★修正2: ページングロジックの追加★) ---
-    const searchParamsObj = (await searchParams) || {};
-    const { page } = searchParamsObj;
-    const pageParam = (Array.isArray(page) ? page[0] : page) || '1'; 
-    const currentPage = parseInt(pageParam, 10);
-    const pageSize = 12; 
-
-    // 1. データ取得 (Promise.allでサイドバー用データも同時に取得)
-    const [productData, makers, categories] = await Promise.all([ 
-        getProductsByMaker({ 
-            makerSlug, 
-            page: currentPage, 
-            limit: pageSize // ★ページングパラメータを渡す
-        }),
-        getAllMakers(),     // ★追加: サイドバーのメーカーリスト用
-        getCategories(),    // ★追加: サイドバーのカテゴリリスト用
+    // 必要なデータを並行して取得
+    const [
+        productData, 
+        makerName, 
+        makers, 
+        categories
+    ] = await Promise.all([
+        getProductsByMaker({ makerSlug, page: currentPage, limit }),
+        getMakerNameBySlug(makerSlug), // ★デバッグログが含まれている関数★
+        getAllMakers(),
+        getCategories(),
     ]);
+
+    // メーカー名が取得できなかったら404
+    if (!makerName) {
+        notFound();
+    }
 
     const { products, totalPages } = productData;
 
-    // 2. メーカー名を取得
-    const makerName = await getMakerNameBySlug(makerSlug); // await が必要
-
-    // メーカー名が存在しない場合 (404 または Not Found 処理)
-    if (!makerName) {
-        return (
-            <div className="container" style={{ margin: '40px auto', padding: '0 20px' }}>
-                <h1>メーカー '{makerSlug}' が見つかりませんでした。</h1>
-                <p>URLを確認するか、トップページからお探しください。</p>
-                <Link href="/">トップページに戻る</Link>
-            </div>
-        );
-    }
-
-    // 商品一覧の表示
     return (
-        <main className="page-layout" style={{ display: 'flex', gap: '20px', padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="flex gap-6">
             
-            {/* 2. Sidebar (★修正1: サイドバーコンポーネントの追加★) */}
-            <aside style={{ flex: '0 0 250px' }}>
-                <ProductSidebar 
-                    categories={categories} 
-                    makers={makers} 
+            {/* --- サイドバー --- */}
+            <aside className="hidden lg:block w-64 flex-shrink-0">
+                <CategorySidebar 
+                    categories={categories}
+                    makers={makers}
                     currentMakerSlug={makerSlug} // 現在のメーカーをハイライト
                 />
             </aside>
-            
-            {/* 3. Main Content (商品リストとページネーション) */}
-            <section className="main-content" style={{ flex: '1' }}>
-                <h1 style={{ fontSize: '2rem', borderBottom: '2px solid #3498db', paddingBottom: '10px' }}>
-                    {makerName} の商品一覧
+
+            {/* --- メインコンテンツ --- */}
+            <div className="flex-grow min-w-0">
+                <h1 className="text-3xl font-extrabold text-gray-800 mb-6 border-b-4 border-indigo-500 pb-2">
+                    <span className="text-indigo-600">🏭</span> {makerName} の商品一覧
                 </h1>
                 
-                <p style={{ color: '#555' }}>
-                    全 **{products.length}** 件の商品が見つかりました。（全 {totalPages} ページ中 {currentPage} ページ目）
-                </p>
+                {/* パンくずリスト (シンプルに) */}
+                <nav className="text-sm mb-4">
+                    <Link href="/" className="text-gray-600 hover:text-indigo-600">トップ</Link>
+                    <span className="mx-2 text-gray-400">/</span>
+                    <span className="font-semibold text-gray-800">{makerName}</span>
+                </nav>
 
-                {/* ProductGrid コンポーネントを呼び出す */}
-                {products.length > 0 ? (
-                    <ProductGrid products={products} />
-                ) : (
-                    <div style={{ border: '1px dashed #ccc', padding: '30px', textAlign: 'center', marginTop: '30px' }}>
-                        <p>現在、**{makerName}** のセール商品はありません。</p>
-                        <Link href="/">トップページに戻る</Link>
+                {products.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                        <p className="text-xl text-gray-600">
+                            現在、**{makerName}** の商品は見つかりませんでした。
+                        </p>
+                        <p className="mt-4 text-sm text-gray-500">
+                            恐れ入りますが、別のカテゴリやメーカーをお探しください。
+                        </p>
                     </div>
+                ) : (
+                    <>
+                        {/* 商品グリッド */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+                            {products.map((product) => (
+                                <ProductCard key={product.id} product={product} />
+                            ))}
+                        </div>
+
+                        {/* ページネーション */}
+                        <Pagination 
+                            totalPages={totalPages} 
+                            currentPage={currentPage}
+                            basePath={`/maker/${params.makerSlug}`} // URLエンコードされたスラッグをそのまま使用
+                        />
+                    </>
                 )}
-                
-                {/* ページネーション (★修正2: ページネーションコンポーネントの追加★) */}
-                <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                    <Pagination totalPages={totalPages} />
-                </Suspense>
-            </section>
-        </main>
+            </div>
+        </div>
     );
 }

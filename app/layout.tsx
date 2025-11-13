@@ -1,24 +1,44 @@
-// /app/layout.tsx (全幅化とレイアウト整理)
+// /app/layout.tsx (サイドバー付き全幅表示 修正版)
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next"; 
 import { Inter } from "next/font/google";
 import { Suspense } from 'react'; 
-import "./globals.css";
+import "./globals.css"; 
 
 // コンポーネントのインポート
 import Header from './components/Header';
 import Footer from './components/Footer';
-import ProductSidebar from "./components/ProductSidebar"; 
+import CategorySidebar from './components/CategorySidebar'; // ★サイドバー復活★
+
 // データ取得関数のインポート
-import { getWPCategories, getWPTags } from "@/lib/wordpress"; 
-import { getCategories, getAllMakers } from "@/lib/data"; 
+import { getCategories, getAllMakers } from "@/lib/data"; // ★データ取得復活★
 
 const inter = Inter({ subsets: ["latin"] });
 const SITE_DOMAIN = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com';
-export const metadata: Metadata = {
-    // ... metadata の定義は省略 ...
+
+
+// --- Viewport & Metadata ---
+// ... (変更なし)
+
+export const viewport: Viewport = {
+    width: 'device-width', 
+    initialScale: 1,
+    maximumScale: 1, 
 };
 
+export const metadata: Metadata = {
+    title: {
+        template: '%s | BIC-SAVING ECサイト',
+        default: 'BIC-SAVING ECサイト トップページ',
+    },
+    description: 'VPSで構築されたNext.jsベースのECサイト。',
+    metadataBase: new URL(SITE_DOMAIN),
+    alternates: { canonical: SITE_DOMAIN },
+    robots: { index: true, follow: true },
+};
+
+
+// --- Root Layout Component ---
 
 export default async function RootLayout({
     children,
@@ -26,51 +46,40 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     
-    const [wpCategories, ecCategories, wpTags, makers] = await Promise.all([
-        getWPCategories().catch(() => []), 
+    // カテゴリとメーカーのデータを並行取得
+    const [ecCategories, allMakers] = await Promise.all([
         getCategories().catch(() => []), 
-        getWPTags().catch(() => []), 
-        getAllMakers().catch(() => []), 
+        getAllMakers().catch(() => []),
     ]);
-
     const safeECCategories = Array.isArray(ecCategories) ? ecCategories : [];
-    const safeMakers = Array.isArray(makers) ? makers : [];
+    const safeAllMakers = Array.isArray(allMakers) ? allMakers : [];
 
     return (
         <html lang="ja">
-            <body className={inter.className} style={{ margin: 0, padding: 0 }}>
+            <body className={inter.className}>
                 
                 <Suspense fallback={<div>Loading Header...</div>}>
                     <Header /> 
                 </Suspense>
                 
-                {/* ★★★ 修正点: 全幅を維持しつつ、左右の余白はメインコンテンツ内で調整 ★★★ */}
-                <div className="main-layout" style={{ 
-                    display: 'flex', 
-                    width: '100%',
-                    // 外側の padding を削除し、コンテンツ間の gap のみ残す
-                    margin: '0', 
-                    padding: '20px 0' // 上下のパディングは維持
-                }}>
+                {/* ★修正: 2カラムレイアウトを復活 (globals.cssで max-width を広げる) ★ */}
+                <div className="container page-layout"> 
                     
-                    {/* 1. ECサイトのProductSidebar (左側のナビゲーション) - w-1/4 */}
-                    {/* ★★★ 修正点: 左右に10pxのパディングを追加して、全体に余白を作る ★★★ */}
-                    <aside className="ec-sidebar w-1/4" style={{ padding: '0 10px 0 20px' }}>
-                        <ProductSidebar 
-                            categories={safeECCategories} 
-                            makers={safeMakers}           
-                            currentCategoryId={null}      
-                            currentMakerSlug={undefined}  
-                        />
+                    {/* ★ サイドバー (左側) ★ */}
+                    <aside className="sidebar"> 
+                        <Suspense fallback={<div>Loading Filters...</div>}>
+                            <CategorySidebar 
+                                categories={safeECCategories}
+                                makers={safeAllMakers} 
+                            />
+                        </Suspense>
                     </aside>
                     
-                    {/* 2. メインコンテンツ - w-3/4 */}
-                    {/* ★★★ 修正点: 右側に20pxのパディングを追加して、右端の余白を作る ★★★ */}
-                    <main className="main-content w-3/4" style={{ 
-                        flex: 1, 
-                        minHeight: '80vh', 
-                        padding: '0 20px 20px 10px' // 上右下左の順。左側はサイドバーとの間に10px
-                    }}>
+                    {/* ★ メインコンテンツ (右側) ★ */}
+                    <main 
+                        className="main-content" 
+                        style={{ minHeight: '80vh', padding: '20px 0 20px 20px' }}
+                    >
                         <Suspense fallback={<div>Loading Content...</div>}> 
                             {children}
                         </Suspense>

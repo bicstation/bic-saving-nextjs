@@ -1,4 +1,4 @@
-// /lib/data.ts (メーカー名マッピングを追加)
+// /lib/data.ts (デバッグログ追加版 - 全ロジック)
 
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
@@ -46,8 +46,8 @@ async function getAllMakers(): Promise<Maker[]> {
     const apiUrl = `${API_BASE_URL}/makers/`; 
     
     if (!BASE_URL) {
-         console.error('Environment variable NEXT_PUBLIC_API_BASE_URL is not set.');
-         return [];
+           console.error('Environment variable NEXT_PUBLIC_API_BASE_URL is not set.');
+           return [];
     }
     
     try {
@@ -75,7 +75,31 @@ async function getAllMakers(): Promise<Maker[]> {
  */
 async function getMakerNameBySlug(slug: string): Promise<string | null> {
     const makers = await getAllMakers();
-    const maker = makers.find(m => m.slug === slug);
+    
+    // ===========================================================
+    // ★★ デバッグログ開始 ★★
+    // ===========================================================
+    console.log("\n[DEBUG: getMakerNameBySlug]");
+    console.log(`Target Slug (from URL/Router): "${slug}"`);
+    console.log(`Total Makers Loaded for comparison: ${makers.length}`);
+    
+    // 完全に一致するかどうかを確認
+    const maker = makers.find(m => {
+        // デバッグ用: 比較対象のスラッグを出力 (量が多すぎる場合はコメントアウトしてください)
+        // console.log(`  Comparing API Slug: "${m.slug}"`);
+        return m.slug === slug;
+    });
+
+    if (maker) {
+        console.log(`✅ MATCH FOUND! Maker Name: "${maker.name}"`);
+    } else {
+        console.log("❌ NO MATCH FOUND. Check for subtle character differences in API data.");
+    }
+    console.log("[DEBUG: END]\n");
+    // ===========================================================
+    // ★★ デバッグログ終了 ★★
+    // ===========================================================
+    
     return maker ? maker.name : null;
 }
 
@@ -98,7 +122,6 @@ interface GetProductsParams {
 async function getProducts({ page = 1, limit = 12, categoryId = null, query = null, makerSlug = null }: GetProductsParams): Promise<ProductData> {
     
     // 依存するgetAllMakersを事前に取得
-    // ★★★ 修正: makerName マッピングのために Makers を取得 ★★★
     const makers = await getAllMakers();
     const getMakerName = (slug: string) => makers.find(m => m.slug === slug)?.name || '不明';
 
@@ -108,6 +131,7 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
     let needsFrontendPagination = false;
 
     if (query || makerSlug) {
+        // MakerFilterの場合は、APIの負荷軽減のため一旦全件取得(limit=1000)
         apiUrl = `${API_BASE_URL}/products?limit=1000`; 
         needsFrontendPagination = true;
         categoryId = null; 
@@ -134,7 +158,8 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
         const apiProducts = (data.results || []) as ApiProduct[];
         let allProducts: Product[] = apiProducts.map(apiProd => {
             
-            const currentMakerSlug = apiProd.maker_slug || 'unknown';
+            // maker_slugがAPIレスポンスのどこにあるかに応じて修正
+            const currentMakerSlug = (apiProd as any).maker_slug || 'unknown'; 
             
             return {
                 id: apiProd.id,
@@ -144,7 +169,6 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
                 description: apiProd.description || undefined,
                 category: apiProd.category,
                 makerSlug: currentMakerSlug,
-                // ★★★ 修正: makerName を追加 (エラー解消) ★★★
                 makerName: getMakerName(currentMakerSlug), 
                 updated_at: apiProd.updated_at,
             }
@@ -159,10 +183,22 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
             );
         }
         
-        // メーカーによるフィルタリング
+        // メーカーによるフィルタリング (メーカーページはこのロジックを使用)
         if (makerSlug) {
             allProducts = allProducts.filter(product => product.makerSlug === makerSlug);
         }
+        
+        // ===========================================================
+        // ★★ デバッグログ (Product取得時) ★★
+        // ===========================================================
+        if (makerSlug && needsFrontendPagination) {
+            console.log("\n[DEBUG: getProducts]");
+            console.log(`Filtering by Maker Slug: "${makerSlug}"`);
+            console.log(`Filtered Product Count: ${allProducts.length}`);
+            console.log("[DEBUG: END]\n");
+        }
+        // ===========================================================
+
 
         if (needsFrontendPagination) {
             // 3. フロントエンドでページネーションのロジックを適用
@@ -194,7 +230,7 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
     }
 }
 
-// カテゴリ別商品取得関数 (省略)
+// カテゴリ別商品取得関数
 interface GetProductsByCategoryParams {
     categoryId: number;
     page?: number;
@@ -207,7 +243,7 @@ async function getProductsByCategory({ categoryId, page, limit }: GetProductsByC
     return getProducts({ page, limit, categoryId, query: null, makerSlug: null }); 
 }
 
-// メーカー別商品取得関数 (省略)
+// メーカー別商品取得関数 
 interface GetProductsByMakerParams {
     makerSlug: string;
     page?: number;
@@ -221,15 +257,11 @@ async function getProductsByMaker({ makerSlug, page, limit }: GetProductsByMaker
 }
 
 
-// ====================================================================
 // 単一商品取得関数
-// ====================================================================
-
 async function getProductById(id: string | number): Promise<Product | null> {
     const apiUrl = `${API_BASE_URL}/products/${id}/`; 
     
     // 依存するgetAllMakersを事前に取得
-    // ★★★ 修正: makerName マッピングのために Makers を取得 ★★★
     const makers = await getAllMakers();
     const getMakerName = (slug: string) => makers.find(m => m.slug === slug)?.name || '不明';
 
@@ -246,7 +278,6 @@ async function getProductById(id: string | number): Promise<Product | null> {
         }
         
         const apiProd: any = await res.json(); 
-        
         const currentMakerSlug = apiProd.maker_slug || 'unknown';
 
         // マッピング処理を適用 (ApiProduct -> Product)
@@ -258,7 +289,6 @@ async function getProductById(id: string | number): Promise<Product | null> {
             description: apiProd.description || undefined,
             category: apiProd.final_category_id || apiProd.category,
             makerSlug: currentMakerSlug,
-            // ★★★ 修正: makerName を追加 (エラー解消) ★★★
             makerName: getMakerName(currentMakerSlug),
             updated_at: apiProd.updated_at,
         };
@@ -272,7 +302,7 @@ async function getProductById(id: string | number): Promise<Product | null> {
 }
 
 // ====================================================================
-// カテゴリ名とパンくずパスのロジック (省略)
+// カテゴリ名とパンくずパスのロジック
 // ====================================================================
 
 interface BreadcrumbItem {
@@ -280,14 +310,51 @@ interface BreadcrumbItem {
     name: string;
 }
 
+/**
+ * カテゴリIDからカテゴリ名を見つけるヘルパー関数
+ */
 function findCategoryNameById(categories: Category[], id: string | number): string | null {
-// ... 省略 ...
-    return null;
+    const targetId = typeof id === 'string' ? parseInt(id, 10) : id;
+    
+    const findRecursive = (cats: Category[]): string | null => {
+        for (const cat of cats) {
+            if (cat.id === targetId) {
+                return cat.name;
+            }
+            if (cat.children && cat.children.length > 0) {
+                const found = findRecursive(cat.children);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+    
+    return findRecursive(categories);
 }
+
+/**
+ * カテゴリIDからパンくずパスを見つけるヘルパー関数
+ */
 function findCategoryPath(categories: Category[], targetId: number | string, path: BreadcrumbItem[] = []): BreadcrumbItem[] | null {
-// ... 省略 ...
+    const numericTargetId = typeof targetId === 'string' ? parseInt(targetId, 10) : targetId;
+    
+    for (const category of categories) {
+        const newPath = [...path, { id: category.id, name: category.name }];
+        
+        if (category.id === numericTargetId) {
+            return newPath;
+        }
+        
+        if (category.children && category.children.length > 0) {
+            const foundPath = findCategoryPath(category.children, numericTargetId, newPath);
+            if (foundPath) {
+                return foundPath;
+            }
+        }
+    }
     return null; 
 }
+
 
 /**
  * カテゴリIDからカテゴリ名を取得する
@@ -311,7 +378,7 @@ async function getCategoryBreadcrumbPath(categoryId: string | number | null): Pr
 }
 
 // ====================================================================
-// Sitemap対応のための関数 (省略)
+// Sitemap対応のための関数
 // ====================================================================
 
 /**
