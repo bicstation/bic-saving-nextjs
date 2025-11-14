@@ -61,16 +61,19 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
 export async function generateStaticParams() {
     const posts = await getPosts(100); // 最新の100件からパスを生成
     
-    // ★ 修正1: getPosts が undefined や null を返した場合の対策 ★
-    // posts が配列でない場合は空の配列を返し、mapによるエラーを防ぐ。
+    // 1. posts が配列でない場合は空の配列を返す (lib/wordpress.ts の防御策が適用済みだが、二重チェック)
     if (!Array.isArray(posts)) {
         console.error("generateStaticParams: getPosts did not return an array.");
         return [];
     }
 
-    return posts.map(post => ({
-        slug: post.slug,
-    }));
+    // 2. ★ 最終修正: postが存在し、かつ slug が有効な文字列である記事のみをフィルターする ★
+    // これにより、APIから返された記事データに欠損があってもクラッシュを防ぐ
+    return posts
+        .filter(post => post && typeof post.slug === 'string' && post.slug.length > 0)
+        .map(post => ({
+            slug: post.slug,
+        }));
 }
 
 
@@ -91,10 +94,8 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
 
 
     return (
-        // ★ 構文エラーを避けるため、returnの直後にルート要素を配置 ★
         <main className={styles.postDetailMain}>
             
-            {/* ★ インラインスタイルを完全に排除し、CSSモジュールを使用 ★ */}
             <Link href="/sale-blog" className={styles.backLink}>
                 &larr; 一覧に戻る
             </Link>
@@ -113,7 +114,6 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
                         alt={`セール情報: ${post.title.rendered} | bic-saving`}
                         width={800}
                         height={500}
-                        // layoutは非推奨のため削除。CSSで幅を制御
                     />
                 </div>
             )}
