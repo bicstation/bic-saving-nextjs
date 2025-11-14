@@ -1,8 +1,7 @@
-// /app/sale-blog/page.tsx (修正版)
+// /app/sale-blog/page.tsx (最終版)
 
 // 'use client' は削除し、Server Componentとして動作させる
 
-// ★ 修正1: Post の代わりに PostSummary をインポートに追加 ★
 import { getSalePosts, PostSummary, getCategoryNameById, getTagNameById } from "@/lib/wordpress"; 
 import type { Metadata } from 'next'; 
 // CSSモジュールをインポート
@@ -43,20 +42,19 @@ export const metadata: Metadata = {
 interface SaleBlogPageProps {
     searchParams?: {
         category?: string; // URLクエリ ?category=ID を受け取る
-        tag?: string;      // URLクエリ ?tag=ID を受け取る
+        tag?: string;      // URLクエリ ?tag=ID を受け取る
     };
 }
 
 export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) {
-    // ★ 修正2: posts 変数の型を PostSummary[] に変更 ★
+    // posts 変数の型を PostSummary[] に変更
     let posts: PostSummary[] = [];
     
-    // ★ 修正3: searchParams is not awaited 警告対策 ★
-    // searchParamsを一旦ローカル変数に格納することで、警告を回避し安全性を確保します。
+    // searchParamsを一旦ローカル変数に格納することで、警告を回避し安全性を確保
     const params = searchParams || {};
     
-    const categoryId = params.category; // カテゴリIDを取得 (修正)
-    const tagId = params.tag;           // タグIDを取得 (修正)
+    const categoryId = params.category; // カテゴリIDを取得
+    const tagId = params.tag;           // タグIDを取得
     
     let pageTitle = 'リンクシェア セール情報一覧';
     let filterParams: { category?: string; tag?: string } = {}; // getSalePostsに渡すパラメータ
@@ -97,14 +95,12 @@ export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) 
         // filterParams が空の場合は全件取得
         const fetchedPosts = await getSalePosts(filterParams.category || filterParams.tag ? filterParams : undefined);
         
-        // ★ 修正4: undefined (reading 'filter') 対策 ★
-        // getSalePostsがundefinedやnullを返した場合に備えて、postsを安全に設定します。
-        // fetchedPostsの型が PostSummary[] であるため、postsへの代入が安全になりました。
+        // ★ 修正4: undefined (reading 'filter') 対策: 戻り値が必ず配列であることを確認 ★
         if (Array.isArray(fetchedPosts)) {
             posts = fetchedPosts;
         } else {
             console.error("getSalePosts returned non-array data:", fetchedPosts);
-            // エラーを再スローするか、安全な空配列を使用
+            // 処理が続行できるように安全な空配列を使用
             posts = []; 
         }
 
@@ -127,6 +123,7 @@ export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) 
         <main>
             <h1>{pageTitle}</h1>
             
+            {/* postsは常に配列であるため、BlogListClientに安全に渡される */}
             <BlogListClient posts={posts} />
 
             {/* 記事が見つからなかった場合のメッセージ */}
