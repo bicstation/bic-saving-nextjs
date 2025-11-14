@@ -1,4 +1,4 @@
-// lib/wordpress.ts (HTTPS修正版)
+// lib/wordpress.ts (HTTPS修正版 + JSONパースの防御的処理)
 
 // 記事取得のベースURLをHTTPSに修正
 const BASE_URL = "https://blog.bic-saving.com/wp-json/wp/v2";
@@ -74,16 +74,13 @@ export interface FilterParams {
  * 全記事一覧を取得する (カテゴリID/タグIDによるフィルタリングに対応)
  * @param params - オプションのフィルタリングパラメータ (categoryまたはtag)
  */
-// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
     let url = `${WORDPRESS_API_URL}?_embed`;
 
-    // カテゴリIDが存在する場合、APIクエリパラメータに追加
     if (params?.category) {
         url += `&categories=${params.category}`;
     }
     
-    // タグIDが存在する場合、APIクエリパラメータに追加
     if (params?.tag) {
         url += `&tags=${params.tag}`;
     }
@@ -94,26 +91,25 @@ export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
         });
         
         if (!res.ok) {
-            // API応答が200 OKでない場合（この時点では301リダイレクトは追跡されているはず）
             console.error(`Failed to fetch WordPress posts: HTTP ${res.status}`);
-            return []; // 失敗時は空の配列を返す
+            return [];
         }
 
-        // JSONパースエラーもここで捕捉される
-        const posts: Post[] = await res.json(); 
-        return Array.isArray(posts) ? posts : []; // 配列保証を徹底
+        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
+        const rawData: any = await res.json(); 
+        const posts: Post[] = rawData || []; 
+        
+        return Array.isArray(posts) ? posts : []; 
 
     } catch (error) {
-        // ネットワークエラー、JSONパースエラーなど
         console.error("Error fetching sale posts in getSalePosts:", error);
-        return []; // 失敗時は空の配列を返す
+        return []; 
     }
 }
 
 /**
  * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
  */
-// ★★★ 修正: ネットワークエラー時やAPI失敗時に null を返すガード句を追加 ★★★
 export async function getPostBySlug(slug: string): Promise<Post | null> {
     try {
         const res = await fetch(`${WORDPRESS_API_URL}?slug=${slug}&_embed`);
@@ -123,21 +119,22 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
             return null;
         }
 
-        const posts: Post[] = await res.json();
+        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
+        const rawData: any = await res.json();
+        const posts: Post[] = rawData || [];
         
         return Array.isArray(posts) && posts.length > 0 ? posts[0] : null; 
     } catch (error) {
         console.error("Error fetching post by slug in getPostBySlug:", error);
-        return null; // 失敗時は null を返す
+        return null;
     }
 }
 
 /**
  * カテゴリ一覧を取得する
  */
-// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPCategories(): Promise<WPCategory[]> {
-    const CATEGORIES_API_URL = `${BASE_URL}/categories`; // HTTPS化
+    const CATEGORIES_API_URL = `${BASE_URL}/categories`; 
 
     try {
         const res = await fetch(CATEGORIES_API_URL, {
@@ -146,24 +143,25 @@ export async function getWPCategories(): Promise<WPCategory[]> {
         
         if (!res.ok) {
             console.error(`Failed to fetch WordPress categories: HTTP ${res.status}`);
-            return []; // 失敗時は空の配列を返す
+            return []; 
         }
         
-        const categories: WPCategory[] = await res.json();
+        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
+        const rawData: any = await res.json();
+        const categories: WPCategory[] = rawData || [];
         return Array.isArray(categories) ? categories : [];
 
     } catch (error) {
-        console.error("Error fetching categories in getWPCategories:", error);
-        return []; // 失敗時は空の配列を返す
+        console.log("Error fetching categories in getWPCategories:", error); // console.errorからconsole.logに変更
+        return []; 
     }
 }
 
 /**
  * ★★★ 追加: タグ一覧を取得する関数 ★★★
  */
-// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPTags(): Promise<WPTag[]> {
-    const TAGS_API_URL = `${BASE_URL}/tags`; // HTTPS化
+    const TAGS_API_URL = `${BASE_URL}/tags`; 
 
     try {
         // 記事のカウントが0より大きいタグのみを取得
@@ -173,22 +171,23 @@ export async function getWPTags(): Promise<WPTag[]> {
         
         if (!res.ok) {
             console.error(`Failed to fetch WordPress tags: HTTP ${res.status}`);
-            return []; // 失敗時は空の配列を返す
+            return []; 
         }
         
-        const tags: WPTag[] = await res.json();
+        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
+        const rawData: any = await res.json();
+        const tags: WPTag[] = rawData || [];
         return Array.isArray(tags) ? tags : [];
 
     } catch (error) {
         console.error("Error fetching tags in getWPTags:", error);
-        return []; // 失敗時は空の配列を返す
+        return [];
     }
 }
 
 /**
  * 全記事一覧を取得する (count件まで)
  */
-// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getPosts(count: number = 100): Promise<Post[]> {
     try {
         const res = await fetch(`${WORDPRESS_API_URL}?_embed&per_page=${count}`, {
@@ -197,24 +196,27 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
         
         if (!res.ok) {
             console.error(`Failed to fetch WordPress posts for static params: HTTP ${res.status}`);
-            return []; // 失敗時は空の配列を返す
+            return []; 
         }
 
-        const rawPosts: any[] = await res.json();
-        // ★ 注意: rawPostsが配列であることを仮定しているため、念のためArray.isArrayチェックを推奨 ★
-        if (!Array.isArray(rawPosts)) {
+        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
+        const rawPosts: any = await res.json();
+        // rawPostsが falsy の場合、空の配列として扱う
+        const postsArray: any[] = rawPosts || []; 
+
+        if (!Array.isArray(postsArray)) {
             console.error("API response was not an array in getPosts.");
             return [];
         }
         
-        return rawPosts.map(post => ({
+        return postsArray.map(post => ({
             ...post,
             categories: post.categories, 
             featured_media_url: getFeaturedImageUrl(post as Post) 
         }));
     } catch (error) {
         console.error("Error fetching posts in getPosts:", error);
-        return []; // 失敗時は空の配列を返す
+        return []; 
     }
 }
 
@@ -227,7 +229,7 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
  * カテゴリIDからカテゴリ名を取得する関数
  */
 export async function getCategoryNameById(id: number): Promise<string | null> {
-    const CATEGORIES_API_URL = `${BASE_URL}/categories`; // HTTPS化
+    const CATEGORIES_API_URL = `${BASE_URL}/categories`; 
 
     const res = await fetch(`${CATEGORIES_API_URL}/${id}`, {
         cache: 'force-cache'
@@ -249,7 +251,7 @@ export async function getCategoryNameById(id: number): Promise<string | null> {
  * ★★★ 追加: タグIDからタグ名を取得する関数 ★★★
  */
 export async function getTagNameById(id: number): Promise<string | null> {
-    const TAGS_API_URL = `${BASE_URL}/tags`; // HTTPS化
+    const TAGS_API_URL = `${BASE_URL}/tags`; 
 
     const res = await fetch(`${TAGS_API_URL}/${id}`, {
         cache: 'force-cache'
