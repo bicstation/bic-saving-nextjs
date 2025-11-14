@@ -1,4 +1,4 @@
-// lib/wordpress.ts
+// lib/wordpress.ts (修正版)
 
 // 記事取得のベースURL
 const WORDPRESS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/posts";
@@ -73,7 +73,7 @@ export interface FilterParams {
  * 全記事一覧を取得する (カテゴリID/タグIDによるフィルタリングに対応)
  * @param params - オプションのフィルタリングパラメータ (categoryまたはtag)
  */
-// ★★★ 修正: パラメータを FilterParams 型に変更し、タグ/カテゴリに対応 ★★★
+// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
     let url = `${WORDPRESS_API_URL}?_embed`;
 
@@ -87,85 +87,127 @@ export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
         url += `&tags=${params.tag}`;
     }
     
-    const res = await fetch(url, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress posts: ${res.statusText}`);
-    }
+    try {
+        const res = await fetch(url, {
+            cache: 'force-cache'
+        });
+        
+        if (!res.ok) {
+            // API応答が200 OKでない場合
+            console.error(`Failed to fetch WordPress posts: HTTP ${res.status}`);
+            return []; // 失敗時は空の配列を返す
+        }
 
-    return res.json();
+        return res.json();
+    } catch (error) {
+        // ネットワークエラーなど
+        console.error("Error fetching sale posts in getSalePosts:", error);
+        return []; // 失敗時は空の配列を返す
+    }
 }
 
 /**
  * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
  */
+// ★★★ 修正: ネットワークエラー時やAPI失敗時に null を返すガード句を追加 ★★★
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-    const res = await fetch(`${WORDPRESS_API_URL}?slug=${slug}&_embed`);
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch post by slug: ${res.statusText}`);
-    }
+    try {
+        const res = await fetch(`${WORDPRESS_API_URL}?slug=${slug}&_embed`);
+        
+        if (!res.ok) {
+            console.error(`Failed to fetch post by slug: HTTP ${res.status}`);
+            return null;
+        }
 
-    const posts: Post[] = await res.json();
-    
-    return posts.length > 0 ? posts[0] : null;
+        const posts: Post[] = await res.json();
+        
+        return posts.length > 0 ? posts[0] : null;
+    } catch (error) {
+        console.error("Error fetching post by slug in getPostBySlug:", error);
+        return null; // 失敗時は null を返す
+    }
 }
 
 /**
  * カテゴリ一覧を取得する
  */
+// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPCategories(): Promise<WPCategory[]> {
     const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
 
-    const res = await fetch(CATEGORIES_API_URL, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress categories: ${res.statusText}`);
-    }
+    try {
+        const res = await fetch(CATEGORIES_API_URL, {
+            cache: 'force-cache'
+        });
+        
+        if (!res.ok) {
+            console.error(`Failed to fetch WordPress categories: HTTP ${res.status}`);
+            return []; // 失敗時は空の配列を返す
+        }
 
-    return res.json();
+        return res.json();
+    } catch (error) {
+        console.error("Error fetching categories in getWPCategories:", error);
+        return []; // 失敗時は空の配列を返す
+    }
 }
 
 /**
  * ★★★ 追加: タグ一覧を取得する関数 ★★★
  */
+// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPTags(): Promise<WPTag[]> {
     const TAGS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/tags";
 
-    // 記事のカウントが0より大きいタグのみを取得
-    const res = await fetch(`${TAGS_API_URL}?orderby=count&order=desc&hide_empty=true&per_page=100`, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress tags: ${res.statusText}`);
-    }
+    try {
+        // 記事のカウントが0より大きいタグのみを取得
+        const res = await fetch(`${TAGS_API_URL}?orderby=count&order=desc&hide_empty=true&per_page=100`, {
+            cache: 'force-cache'
+        });
+        
+        if (!res.ok) {
+            console.error(`Failed to fetch WordPress tags: HTTP ${res.status}`);
+            return []; // 失敗時は空の配列を返す
+        }
 
-    return res.json();
+        return res.json();
+    } catch (error) {
+        console.error("Error fetching tags in getWPTags:", error);
+        return []; // 失敗時は空の配列を返す
+    }
 }
 
 /**
  * 全記事一覧を取得する (count件まで)
  */
+// ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getPosts(count: number = 100): Promise<Post[]> {
-    const res = await fetch(`${WORDPRESS_API_URL}?_embed&per_page=${count}`, {
-        cache: 'force-cache'
-    });
-    
-    if (!res.ok) {
-        throw new Error(`Failed to fetch WordPress posts for static params: ${res.statusText}`);
-    }
+    try {
+        const res = await fetch(`${WORDPRESS_API_URL}?_embed&per_page=${count}`, {
+            cache: 'force-cache'
+        });
+        
+        if (!res.ok) {
+            console.error(`Failed to fetch WordPress posts for static params: HTTP ${res.status}`);
+            return []; // 失敗時は空の配列を返す
+        }
 
-    const rawPosts: any[] = await res.json();
-    return rawPosts.map(post => ({
-        ...post,
-        categories: post.categories, 
-        featured_media_url: getFeaturedImageUrl(post as Post) 
-    }));
+        const rawPosts: any[] = await res.json();
+        // ★ 注意: rawPostsが配列であることを仮定しているため、念のためArray.isArrayチェックを推奨 ★
+        if (!Array.isArray(rawPosts)) {
+            console.error("API response was not an array in getPosts.");
+            return [];
+        }
+        
+        return rawPosts.map(post => ({
+            ...post,
+            categories: post.categories, 
+            featured_media_url: getFeaturedImageUrl(post as Post) 
+        }));
+    } catch (error) {
+        console.error("Error fetching posts in getPosts:", error);
+        return []; // 失敗時は空の配列を返す
+    }
 }
 
 
