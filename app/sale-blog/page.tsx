@@ -1,4 +1,4 @@
-// /app/sale-blog/page.tsx
+// /app/sale-blog/page.tsx (修正版)
 
 // 'use client' は削除し、Server Componentとして動作させる
 
@@ -94,7 +94,18 @@ export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) 
     try {
         // 決定した filterParams オブジェクトを getSalePosts に渡す
         // filterParams が空の場合は全件取得
-        posts = await getSalePosts(filterParams.category || filterParams.tag ? filterParams : undefined); 
+        const fetchedPosts = await getSalePosts(filterParams.category || filterParams.tag ? filterParams : undefined);
+        
+        // ★ 修正4: undefined (reading 'filter') 対策 ★
+        // getSalePostsがundefinedやnullを返した場合に備えて、postsを安全に設定します。
+        if (Array.isArray(fetchedPosts)) {
+            posts = fetchedPosts;
+        } else {
+            console.error("getSalePosts returned non-array data:", fetchedPosts);
+            // エラーを再スローするか、安全な空配列を使用
+            posts = []; 
+        }
+
     } catch (error) {
         console.error("Failed to fetch posts:", error);
         
