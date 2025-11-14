@@ -1,4 +1,4 @@
-// lib/wordpress.ts (最終修正版: getPostBySlug でのデータクリーンアップ適用)
+// lib/wordpress.ts (最終修正版: getPostBySlug でのデータクリーンアップ + 文字列サニタイズ適用)
 
 // 記事取得のベースURLをHTTPSに修正
 const BASE_URL = "https://blog.bic-saving.com/wp-json/wp/v2";
@@ -34,7 +34,7 @@ export interface Post {
     categories: number[]; 
     featured_media_url?: string; 
     excerpt?: RenderedContent; 
-    // ★ Next.jsのシリアライズエラー回避のため、_embedded は型定義に残すが、
+    // Next.jsのシリアライズエラー回避のため、_embedded は型定義に残すが、
     // 実際に返すオブジェクトからは除外するロジックを実装済み
     _embedded?: { 
         'wp:featuredmedia'?: FeaturedMedia[];
@@ -122,14 +122,17 @@ export async function getSalePosts(params?: FilterParams): Promise<PostSummary[]
         );
         
         // ★★★ 修正: 必要な PostSummary のプロパティのみを明示的にマッピング ★★★
+        // ここでも念のため文字列クリーンアップを適用することで、記事一覧ページでのエラーも完全に防ぐ
         return filteredPosts.map(post => ({
             id: post.id,
             slug: post.slug,
             link: post.link,
-            title: post.title, 
+            // 文字列クリーンアップ
+            title: { rendered: post.title.rendered.replace(/\u0000/g, '').trim(), protected: post.title.protected }, 
             date: post.date,
             categories: post.categories, 
-            excerpt: post.excerpt,
+            // 文字列クリーンアップ
+            excerpt: { rendered: post.excerpt?.rendered?.replace(/\u0000/g, '').trim() || '', protected: post.excerpt?.protected || false },
             // content や _embedded は除外し、シリアライズエラーを回避
             featured_media_url: getFeaturedImageUrl(post as Post) 
         }));
@@ -142,7 +145,7 @@ export async function getSalePosts(params?: FilterParams): Promise<PostSummary[]
 
 /**
  * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
- * ★★★ 修正: 取得した Post オブジェクトから安全なプロパティのみを返す ★★★
+ * ★★★ 修正: 取得した Post オブジェクトから安全なプロパティのみを返す + 文字列のサニタイズを適用 ★★★
  */
 export async function getPostBySlug(slug: string): Promise<Post | null> {
     try {
@@ -159,17 +162,24 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
         if (Array.isArray(posts) && posts.length > 0 && posts[0] && typeof posts[0].slug === 'string') {
             const post = posts[0];
             
-            // ★★★ 修正: 必要な Post のプロパティのみを明示的にマッピング ★★★
-            // これにより、Next.jsのSSGを妨げるメタデータが完全に排除される。
+            // ★★★ NEW: JSON.stringify() を妨げる要素を文字列から削除/置換する (Null文字 \u0000 の除去) ★★★
+            // この処理が、再発しているシリアライズエラーの最後の原因である可能性が高い
+            const cleanContent = post.content.rendered
+                .replace(/\u0000/g, '') 
+                .trim();
+            const cleanTitle = post.title.rendered.replace(/\u0000/g, '').trim();
+            const cleanExcerpt = post.excerpt?.rendered?.replace(/\u0000/g, '').trim() || '';
+
+            // 必要な Post のプロパティのみを明示的にマッピングし、クリーンな文字列データを使用
             return {
                 id: post.id,
                 slug: post.slug,
                 link: post.link,
-                title: post.title,
-                content: post.content,
+                title: { rendered: cleanTitle, protected: post.title.protected },
+                content: { rendered: cleanContent, protected: post.content.protected },
                 date: post.date,
                 categories: post.categories, 
-                excerpt: post.excerpt,
+                excerpt: { rendered: cleanExcerpt, protected: post.excerpt?.protected || false },
                 featured_media_url: getFeaturedImageUrl(post as Post)
             } as Post;
         }
@@ -262,19 +272,25 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
             post && typeof post === 'object' && typeof post.slug === 'string'
         );
         
-        // ★★★ 修正: 必要な Post のプロパティのみを明示的にマッピング ★★★
-        return filteredPosts.map(post => ({
-            id: post.id,
-            slug: post.slug,
-            link: post.link,
-            title: post.title,
-            content: post.content, // Post型では content が必須
-            date: post.date,
-            categories: post.categories, 
-            excerpt: post.excerpt,
-            // _embedded は getFeaturedImageUrlで利用するのみにし、Postオブジェクトには直接渡さない
-            featured_media_url: getFeaturedImageUrl(post as Post) 
-        }));
+        // ★★★ 修正: 必要な Post のプロパティのみを明示的にマッピング + 文字列クリーンアップ適用 ★★★
+        return filteredPosts.map(post => {
+            const cleanContent = post.content.rendered.replace(/\u0000/g, '').trim();
+            const cleanTitle = post.title.rendered.replace(/\u0000/g, '').trim();
+            const cleanExcerpt = post.excerpt?.rendered?.replace(/\u0000/g, '').trim() || '';
+
+            return {
+                id: post.id,
+                slug: post.slug,
+                link: post.link,
+                title: { rendered: cleanTitle, protected: post.title.protected },
+                content: { rendered: cleanContent, protected: post.content.protected },
+                date: post.date,
+                categories: post.categories, 
+                excerpt: { rendered: cleanExcerpt, protected: post.excerpt?.protected || false },
+                // _embedded は getFeaturedImageUrlで利用するのみにし、Postオブジェクトには直接渡さない
+                featured_media_url: getFeaturedImageUrl(post as Post) 
+            }
+        });
     } catch (error) {
         console.error("Error fetching posts in getPosts:", error);
         return []; 
@@ -333,7 +349,7 @@ export async function getTagNameById(id: number): Promise<string | null> {
 
 /**
  * 記事データからアイキャッチ画像URLを抽出する
- * ★ post._embedded が undefined であっても安全に動作するようになっている
+ * post._embedded が undefined であっても安全に動作するようになっている
  */
 export function getFeaturedImageUrl(post: Post): string | null {
     const media = post._embedded?.['wp:featuredmedia'];
