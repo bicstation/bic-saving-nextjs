@@ -1,4 +1,4 @@
-// lib/wordpress.ts (HTTPS修正版 + JSONパースの防御的処理 + PostSummary型導入)
+// lib/wordpress.ts (最終修正版: getPostBySlug でのデータクリーンアップ適用)
 
 // 記事取得のベースURLをHTTPSに修正
 const BASE_URL = "https://blog.bic-saving.com/wp-json/wp/v2";
@@ -34,13 +34,14 @@ export interface Post {
     categories: number[]; 
     featured_media_url?: string; 
     excerpt?: RenderedContent; 
-    _embedded?: {
+    // ★ Next.jsのシリアライズエラー回避のため、_embedded は型定義に残すが、
+    // 実際に返すオブジェクトからは除外するロジックを実装済み
+    _embedded?: { 
         'wp:featuredmedia'?: FeaturedMedia[];
     };
 }
 
 /**
- * ★★★ NEW ★★★
  * 記事一覧ページ用 (contentを持たない) の型
  * getSalePosts の戻り値として使用
  */
@@ -67,7 +68,6 @@ export interface WPCategory {
     count: number; 
 }
 
-// ★★★ 追加: WordPress タグの型 ★★★
 export interface WPTag {
     id: number;
     name: string;
@@ -75,10 +75,9 @@ export interface WPTag {
     count: number; 
 }
 
-// ★★★ 追加: 記事フィルタリング用のパラメータ型 ★★★
 export interface FilterParams {
     category?: string | number; // カテゴリID
-    tag?: string | number;      // タグID
+    tag?: string | number;      // タグID
 }
 
 
@@ -88,8 +87,6 @@ export interface FilterParams {
 
 /**
  * 全記事一覧を取得する (カテゴリID/タグIDによるフィルタリングに対応)
- * ★★★ 戻り値の型を PostSummary[] に変更 ★★★
- * @param params - オプションのフィルタリングパラメータ (categoryまたはtag)
  */
 export async function getSalePosts(params?: FilterParams): Promise<PostSummary[]> {
     let url = `${WORDPRESS_API_URL}?_embed`;
@@ -145,6 +142,7 @@ export async function getSalePosts(params?: FilterParams): Promise<PostSummary[]
 
 /**
  * 特定のスラッグを持つ記事を取得する (アイキャッチ情報を含む)
+ * ★★★ 修正: 取得した Post オブジェクトから安全なプロパティのみを返す ★★★
  */
 export async function getPostBySlug(slug: string): Promise<Post | null> {
     try {
@@ -155,14 +153,28 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
             return null;
         }
 
-        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawData: any = await res.json();
-        const posts: Post[] = rawData || [];
+        const posts: any[] = rawData || [];
         
-        // 配列であることを確認し、最初の要素が健全であればそれを返す
-        return Array.isArray(posts) && posts.length > 0 && posts[0] && typeof posts[0].slug === 'string'
-            ? posts[0] 
-            : null; 
+        if (Array.isArray(posts) && posts.length > 0 && posts[0] && typeof posts[0].slug === 'string') {
+            const post = posts[0];
+            
+            // ★★★ 修正: 必要な Post のプロパティのみを明示的にマッピング ★★★
+            // これにより、Next.jsのSSGを妨げるメタデータが完全に排除される。
+            return {
+                id: post.id,
+                slug: post.slug,
+                link: post.link,
+                title: post.title,
+                content: post.content,
+                date: post.date,
+                categories: post.categories, 
+                excerpt: post.excerpt,
+                featured_media_url: getFeaturedImageUrl(post as Post)
+            } as Post;
+        }
+
+        return null; 
     } catch (error) {
         console.error("Error fetching post by slug in getPostBySlug:", error);
         return null;
@@ -185,7 +197,6 @@ export async function getWPCategories(): Promise<WPCategory[]> {
             return []; 
         }
         
-        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawData: any = await res.json();
         const categories: WPCategory[] = rawData || [];
         return Array.isArray(categories) ? categories : [];
@@ -197,7 +208,7 @@ export async function getWPCategories(): Promise<WPCategory[]> {
 }
 
 /**
- * ★★★ 追加: タグ一覧を取得する関数 ★★★
+ * タグ一覧を取得する関数
  */
 export async function getWPTags(): Promise<WPTag[]> {
     const TAGS_API_URL = `${BASE_URL}/tags`; 
@@ -213,7 +224,6 @@ export async function getWPTags(): Promise<WPTag[]> {
             return []; 
         }
         
-        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawData: any = await res.json();
         const tags: WPTag[] = rawData || [];
         return Array.isArray(tags) ? tags : [];
@@ -239,7 +249,6 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
             return []; 
         }
 
-        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawPosts: any = await res.json();
         const postsArray: any[] = rawPosts || []; 
 
@@ -300,7 +309,7 @@ export async function getCategoryNameById(id: number): Promise<string | null> {
 }
 
 /**
- * ★★★ 追加: タグIDからタグ名を取得する関数 ★★★
+ * タグIDからタグ名を取得する関数
  */
 export async function getTagNameById(id: number): Promise<string | null> {
     const TAGS_API_URL = `${BASE_URL}/tags`; 
@@ -324,12 +333,11 @@ export async function getTagNameById(id: number): Promise<string | null> {
 
 /**
  * 記事データからアイキャッチ画像URLを抽出する
+ * ★ post._embedded が undefined であっても安全に動作するようになっている
  */
 export function getFeaturedImageUrl(post: Post): string | null {
     const media = post._embedded?.['wp:featuredmedia'];
     if (media && media.length > 0) {
-        // PostSummary型を引数に取る場合は、_embedded が存在しないため、型アサーションが必要な場合がありますが
-        // ここでは getSalePosts の map 内で post as Post として渡しているため、そのまま利用できます。
         return media[0].source_url; 
     }
     return null;
