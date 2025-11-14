@@ -60,6 +60,14 @@ export async function generateMetadata({ params }: PostDetailPageProps): Promise
  */
 export async function generateStaticParams() {
     const posts = await getPosts(100); // 最新の100件からパスを生成
+    
+    // ★ 修正1: getPosts が undefined や null を返した場合の対策 ★
+    // posts が配列でない場合は空の配列を返し、mapによるエラーを防ぐ。
+    if (!Array.isArray(posts)) {
+        console.error("generateStaticParams: getPosts did not return an array.");
+        return [];
+    }
+
     return posts.map(post => ({
         slug: post.slug,
     }));
