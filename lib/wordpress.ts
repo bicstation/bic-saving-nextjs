@@ -1,7 +1,8 @@
-// lib/wordpress.ts (確認済み、変更なし)
+// lib/wordpress.ts (HTTPS修正版)
 
-// 記事取得のベースURL
-const WORDPRESS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/posts";
+// 記事取得のベースURLをHTTPSに修正
+const BASE_URL = "https://blog.bic-saving.com/wp-json/wp/v2";
+const WORDPRESS_API_URL = `${BASE_URL}/posts`;
 
 // --- アフィリエイト定数 ---
 const LINKSYNERGY_ID = "R9f1WByH5RE"; 
@@ -93,7 +94,7 @@ export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
         });
         
         if (!res.ok) {
-            // API応答が200 OKでない場合
+            // API応答が200 OKでない場合（この時点では301リダイレクトは追跡されているはず）
             console.error(`Failed to fetch WordPress posts: HTTP ${res.status}`);
             return []; // 失敗時は空の配列を返す
         }
@@ -136,7 +137,7 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
  */
 // ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPCategories(): Promise<WPCategory[]> {
-    const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
+    const CATEGORIES_API_URL = `${BASE_URL}/categories`; // HTTPS化
 
     try {
         const res = await fetch(CATEGORIES_API_URL, {
@@ -147,9 +148,9 @@ export async function getWPCategories(): Promise<WPCategory[]> {
             console.error(`Failed to fetch WordPress categories: HTTP ${res.status}`);
             return []; // 失敗時は空の配列を返す
         }
-        
-        const categories: WPCategory[] = await res.json();
-        return Array.isArray(categories) ? categories : [];
+        
+        const categories: WPCategory[] = await res.json();
+        return Array.isArray(categories) ? categories : [];
 
     } catch (error) {
         console.error("Error fetching categories in getWPCategories:", error);
@@ -162,7 +163,7 @@ export async function getWPCategories(): Promise<WPCategory[]> {
  */
 // ★★★ 修正: ネットワークエラー時やAPI失敗時に空配列を返すガード句を追加 ★★★
 export async function getWPTags(): Promise<WPTag[]> {
-    const TAGS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/tags";
+    const TAGS_API_URL = `${BASE_URL}/tags`; // HTTPS化
 
     try {
         // 記事のカウントが0より大きいタグのみを取得
@@ -174,9 +175,9 @@ export async function getWPTags(): Promise<WPTag[]> {
             console.error(`Failed to fetch WordPress tags: HTTP ${res.status}`);
             return []; // 失敗時は空の配列を返す
         }
-        
-        const tags: WPTag[] = await res.json();
-        return Array.isArray(tags) ? tags : [];
+        
+        const tags: WPTag[] = await res.json();
+        return Array.isArray(tags) ? tags : [];
 
     } catch (error) {
         console.error("Error fetching tags in getWPTags:", error);
@@ -226,7 +227,7 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
  * カテゴリIDからカテゴリ名を取得する関数
  */
 export async function getCategoryNameById(id: number): Promise<string | null> {
-    const CATEGORIES_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/categories";
+    const CATEGORIES_API_URL = `${BASE_URL}/categories`; // HTTPS化
 
     const res = await fetch(`${CATEGORIES_API_URL}/${id}`, {
         cache: 'force-cache'
@@ -248,7 +249,7 @@ export async function getCategoryNameById(id: number): Promise<string | null> {
  * ★★★ 追加: タグIDからタグ名を取得する関数 ★★★
  */
 export async function getTagNameById(id: number): Promise<string | null> {
-    const TAGS_API_URL = "http://blog.bic-saving.com/wp-json/wp/v2/tags";
+    const TAGS_API_URL = `${BASE_URL}/tags`; // HTTPS化
 
     const res = await fetch(`${TAGS_API_URL}/${id}`, {
         cache: 'force-cache'
