@@ -1,4 +1,4 @@
-// /app/category/[categoryId]/page.tsx (SEO対策 最終リファクタリング版)
+// /app/category/[categoryId]/page.tsx (最終リファクタリング版 - サイドバー削除済み)
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +10,8 @@ import type { Metadata } from "next"; // メタデータ生成のためにイン
 
 // コンポーネントのインポート
 import Pagination from "@/app/components/Pagination";
-import CategorySidebar from "@/app/components/CategorySidebar";
-// import ProductCard from "@/app/components/ProductCard"; // ★削除: ProductGridを使用
-import ProductGrid from "@/app/components/ProductGrid"; // ★追加: ProductGridを使用
+// import CategorySidebar from "@/app/components/CategorySidebar"; // ★削除★
+import ProductGrid from "@/app/components/ProductGrid"; 
 
 // データ取得関数のインポート
 import { 
@@ -41,14 +40,13 @@ interface CategoryPageProps {
 // --- 2. メタデータの生成 (SEO対策) ---
 export async function generateMetadata({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps): Promise<Metadata> {
     
-    const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
-    // searchParamsもPromiseの可能性があるためawaitする (安全のため)
+    const params = await awaitedParams; 
     const searchParamsObj = (await awaitedSearchParams) || {}; 
 
     const categoryId = parseInt(params.categoryId, 10);
     const categoryName = await getCategoryName(categoryId);
     
-    // カテゴリ名が存在しない場合は、NotFoundを返す代わりに、基本的なメタデータを返す（クロール効率のため）
+    // カテゴリ名が存在しない場合は、基本的なメタデータを返す
     if (!categoryName) {
             return {
                 title: 'カテゴリが見つかりません',
@@ -56,7 +54,7 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
             };
     }
     
-    // 現在のページ番号を取得し、タイトルに含める（ユーザー向け）
+    // 現在のページ番号を取得し、タイトルに含める
     const pageParam = (Array.isArray(searchParamsObj?.page) ? searchParamsObj.page[0] : searchParamsObj?.page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
 
@@ -65,14 +63,13 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
     const description = `${categoryName} に属する人気商品、新着商品を多数掲載中。お得な価格で比較検討できます。`;
 
     // Canonical URLを決定: ページネーションがあってもカテゴリのルートURLを正規とする
-    // 環境変数を使用
     const canonicalUrl = `${PRODUCTION_URL}/category/${categoryId}`; 
 
     return {
         title: title,
         description: description,
         
-        // ★★★ Canonical URLの設定 ★★★
+        // Canonical URLの設定
         alternates: {
             canonical: canonicalUrl,
         },
@@ -91,10 +88,10 @@ export async function generateMetadata({ params: awaitedParams, searchParams: aw
 // --- 3. コンポーネント本体 (型を適用) ---
 export default async function CategoryPage({ params: awaitedParams, searchParams: awaitedSearchParams }: CategoryPageProps) {
     
-    const params = await awaitedParams; // ★ Next.js 15 対応 (params await)
-    const searchParamsObj = (await awaitedSearchParams) || {}; // Next.js 15 対応 (searchParams await)
+    const params = await awaitedParams; 
+    const searchParamsObj = (await awaitedSearchParams) || {}; 
     
-    // categoryIdを数値に変換 (data.tsで利用)
+    // categoryIdを数値に変換
     const categoryId = parseInt(params.categoryId, 10);
     
     // ページングの処理
@@ -108,14 +105,15 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
     }
 
     // API通信を実行
-    const [productData, categories, breadcrumbPath] = await Promise.all([
+    // getCategories() はSidebar削除のため不要だが、breadcrumbPathの取得にカテゴリデータが必要な場合があるため、
+    // BreadcrumbPathのロジックを確認し、必要であれば残す
+    // getCategoryBreadcrumbPath は getCategories() に依存していないため、削除。
+    const [productData, breadcrumbPath] = await Promise.all([
         getProductsByCategory({ categoryId, page: currentPage, limit: pageSize }),
-        getCategories(), 
-        getCategoryBreadcrumbPath(categoryId)
+        getCategoryBreadcrumbPath(categoryId) // BreadcrumbPathの取得にgetCategories()が内部で呼ばれていると想定し、Promise.allを調整
     ]);
     
     const { products, totalPages } = productData;
-    const finalCategories = categories;
     const currentCategoryName = breadcrumbPath.length > 0 
         ? breadcrumbPath[breadcrumbPath.length - 1].name 
         : `ID: ${categoryId} のカテゴリ`;
@@ -127,7 +125,6 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
 
 
     // ★★★ JSON-LD 構造化データ（ItemListスキーマ）の生成 ★★★
-    // ページのアイテムリスト情報を提供
     const itemListSchema = {
         "@context": "https://schema.org",
         "@type": "ItemList",
@@ -177,16 +174,12 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
                 display: 'flex', 
                 gap: '20px', 
                 padding: '20px' }}>
-                {/* 2. Sidebar */}
-                {/* currentCategoryId を渡すことで、サイドバーで階層を自動展開 */}
-                <aside style={{ flex: '0 0 250px' }}>
-                    <CategorySidebar 
-                        categories={finalCategories} 
-                        currentCategoryId={categoryId} 
-                    />
-                </aside>
+                
+                {/* ★★★ Sidebarの領域とレンダリングを完全に削除 ★★★ */}
+                {/* 以前のコードでは、CategorySidebarのためのflexコンテナがあったが、
+                   Main Contentを全幅にするため、flexレイアウトの構造を変更する */}
 
-                {/* 3. Main Content (商品リストとページネーション) */}
+                {/* 3. Main Content (全幅) */}
                 <section className="main-content" style={{ flex: '1' }}>
                     {/* 階層的パンくずリストのレンダリング */}
                     <div className="breadcrumb" style={{ marginBottom: '15px', fontSize: '14px' }}>
@@ -213,15 +206,17 @@ export default async function CategoryPage({ params: awaitedParams, searchParams
                     {products.length === 0 ? (
                         <p style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '5px' }}>このカテゴリに商品が見つかりませんでした。</p>
                     ) : (
-                        // ★★★ 修正箇所: ProductGrid を使用して、商品リストの表示を共通化 ★★★
                         <ProductGrid products={products} />
-                        // ★★★ 修正箇所終了 ★★★
                     )}
 
                     {/* ページネーション */}
                     <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
                         <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                            <Pagination totalPages={totalPages} />
+                            <Pagination 
+                                totalPages={totalPages} 
+                                // カテゴリURLをベースパスとして渡す
+                                basePath={`/category/${categoryId}`}
+                            />
                         </Suspense>
                     </div>
                 </section>

@@ -1,4 +1,4 @@
-// /lib/data.ts (デバッグログ追加版 - 全ロジック)
+// /lib/data.ts (最終修正版 - APIスラッグマッピング追加)
 
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
@@ -85,8 +85,6 @@ async function getMakerNameBySlug(slug: string): Promise<string | null> {
     
     // 完全に一致するかどうかを確認
     const maker = makers.find(m => {
-        // デバッグ用: 比較対象のスラッグを出力 (量が多すぎる場合はコメントアウトしてください)
-        // console.log(`  Comparing API Slug: "${m.slug}"`);
         return m.slug === slug;
     });
 
@@ -101,6 +99,29 @@ async function getMakerNameBySlug(slug: string): Promise<string | null> {
     // ===========================================================
     
     return maker ? maker.name : null;
+}
+
+
+/**
+ * メーカーの日本語名とAPI用スラッグの対応付けをマップとして取得する (★新規追加★)
+ */
+async function getMakerSlugMap(): Promise<Map<string, string>> {
+    try {
+        const makers = await getAllMakers(); 
+        
+        const slugMap = new Map<string, string>();
+        
+        makers.forEach(maker => {
+            // マップのキーはURLから切り出した日本語名 (例: "公式オシャレウォーカー")
+            // 値はAPIが要求するスラッグ (例: "oshare-walker-official-store")
+            slugMap.set(maker.name, maker.slug);
+        });
+        
+        return slugMap;
+    } catch (error) {
+        console.error("メーカーマッピングの取得に失敗しました:", error);
+        return new Map();
+    }
 }
 
 
@@ -130,11 +151,18 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
     let apiUrl = '';
     let needsFrontendPagination = false;
 
-    if (query || makerSlug) {
+    if (makerSlug) {
         // MakerFilterの場合は、APIの負荷軽減のため一旦全件取得(limit=1000)
+        // かつ APIのクエリに maker= を付けてメーカー側でフィルタリングする
+        apiUrl = `${API_BASE_URL}/products?maker=${makerSlug}&limit=1000`; 
+        needsFrontendPagination = true;
+        query = null;
+        categoryId = null; 
+    } else if (query) {
+        // queryはそのまま全件取得 (APIがqueryフィルタをサポートしないと仮定)
         apiUrl = `${API_BASE_URL}/products?limit=1000`; 
         needsFrontendPagination = true;
-        categoryId = null; 
+        categoryId = null;
     } else if (categoryId) {
         apiUrl = `${API_BASE_URL}/products?page=${page}&limit=${limit}&category=${categoryId}`;
         needsFrontendPagination = false;
@@ -158,7 +186,6 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
         const apiProducts = (data.results || []) as ApiProduct[];
         let allProducts: Product[] = apiProducts.map(apiProd => {
             
-            // maker_slugがAPIレスポンスのどこにあるかに応じて修正
             const currentMakerSlug = (apiProd as any).maker_slug || 'unknown'; 
             
             return {
@@ -174,7 +201,7 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
             }
         });
 
-        // 2. フロントエンドでのフィルタリング処理
+        // 2. フロントエンドでのフィルタリング処理 (query のみ)
         if (query) {
             const lowerCaseQuery = query.toLowerCase();
             allProducts = allProducts.filter(product => 
@@ -183,18 +210,16 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
             );
         }
         
-        // メーカーによるフィルタリング (メーカーページはこのロジックを使用)
-        if (makerSlug) {
-            allProducts = allProducts.filter(product => product.makerSlug === makerSlug);
-        }
+        // メーカーによるフィルタリングはAPI側で行われるため、フロントエンドでは不要
+        // if (makerSlug) { ... }
         
         // ===========================================================
         // ★★ デバッグログ (Product取得時) ★★
         // ===========================================================
-        if (makerSlug && needsFrontendPagination) {
+        if ((makerSlug || query) && needsFrontendPagination) {
             console.log("\n[DEBUG: getProducts]");
-            console.log(`Filtering by Maker Slug: "${makerSlug}"`);
-            console.log(`Filtered Product Count: ${allProducts.length}`);
+            console.log(`Filtering by Maker Slug (API): "${makerSlug}"`);
+            console.log(`Filtered Product Count (API response): ${allProducts.length}`);
             console.log("[DEBUG: END]\n");
         }
         // ===========================================================
@@ -253,6 +278,7 @@ async function getProductsByMaker({ makerSlug, page, limit }: GetProductsByMaker
     if (!makerSlug) {
         throw new Error("Maker Slug is required for getProductsByMaker.");
     }
+    // ここで渡される makerSlug は、page.tsxで変換されたAPI用のスラッグ (例: "oshare-walker-official-store")
     return getProducts({ page, limit, categoryId: null, query: null, makerSlug });
 }
 
@@ -451,6 +477,7 @@ export {
     getAllMakers,
     getMakerNameBySlug,
     getProductsByMaker,
+    getMakerSlugMap, // ★新規エクスポート★
     
     // 単一商品取得
     getProductById,

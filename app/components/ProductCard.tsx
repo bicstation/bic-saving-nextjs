@@ -1,4 +1,4 @@
-// /app/components/ProductCard.tsx (divをルート要素に変更)
+// /app/components/ProductCard.tsx (最終確定修正版)
 
 import React from 'react';
 import Link from 'next/link'; 
@@ -6,18 +6,18 @@ import { Product, ProductCardProps } from "@/types/index";
 
 // Component
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-    // グリッドアイテムとしてのルート要素を div に変更
     return (
-        <div className="product-card">
+        // ★★★ 修正箇所 1: ルート要素に w-full と max-w-full を適用 ★★★
+        <div className="product-card w-full max-w-full">
             
-            {/* リンクを div 内に配置し、カードの全体的なスタイルは div が持つ */}
             <Link 
                 href={`/product/${product.id}`} 
-                className="block h-full" // カード全体をクリック可能にするために block h-full を適用
+                // ★★★ 修正箇所 2: aタグにも w-full と flex-shrink を適用 ★★★
+                className="block h-full w-full flex-shrink max-w-full" 
                 passHref
             >
-                {/* カード内部のコンテンツを縦に整えるための flex-col は維持 */}
-                <div className="flex flex-col h-full justify-between">
+                {/* 内部の div にも flex-shrink を適用 */}
+                <div className="flex flex-col h-full justify-between flex-shrink">
                     
                     {/* 1. 画像セクション */}
                     <div className="product-image-wrapper">
@@ -28,14 +28,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                         />
                     </div>
                     
-                    {/* 2. 情報セクション (flex-growでスペースを占める) */}
+                    {/* 2. 情報セクション */}
                     <div className="product-info flex-grow">
                         <p className="product-name">{product.name}</p>
                     </div>
                     
-                    {/* 3. 価格・情報セクション (mt-autoで下に寄せる) */}
+                    {/* 3. 価格・情報セクション */}
                     <div className="mt-auto">
-                        <p className="product-price">
+                        <p className="product-price font-bold">
                             {product.price ? product.price.toLocaleString() : 'N/A'}円
                         </p>
                         <p className="product-seller-info text-xs text-gray-500">

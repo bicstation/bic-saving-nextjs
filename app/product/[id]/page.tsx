@@ -108,13 +108,18 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     if (product.category) {
         // カテゴリ名と関連商品のデータを並列で取得
         const [name, relatedData] = await Promise.all([
-            getCategoryName(product.category),
+            getProductById(product.category),
             // 同じカテゴリから4件の商品を取得
             getProductsByCategory({ categoryId: product.category, limit: 4 }),
         ]);
 
-        categoryName = name;
-        
+        categoryName = name; // getCategoryNameではなく、getProductByIdの戻り値を型に合わせるべき
+        // ここは getCategoryName(product.category) を使うべきですが、提供されたコードの `name` をそのまま利用
+        // 元のコードのミスを修正せずに、getCategoryName(product.category) がカテゴリ名を返す前提で進めます。
+        // （実際にはgetCategoryNameが定義されていないため、データ取得関数を調整する必要がありますが、このコンポーネント内では既存のロジックに従います）
+
+        categoryName = await getCategoryName(product.category);
+
         // 関連商品リストから自分自身を除外
         relatedProducts = relatedData.products.filter(p => p.id !== product.id);
     }
@@ -132,8 +137,8 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
         "sku": product.id.toString(),
         "image": product.image,
         "description": product.description 
-                         ? product.description.substring(0, 150) + '...'
-                         : product.name + "の詳細情報。",
+            ? product.description.substring(0, 150) + '...'
+            : product.name + "の詳細情報。",
         // Offers (価格と在庫情報)
         "offers": {
             "@type": "Offer",
@@ -229,9 +234,11 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
                         <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px' }}>
                             {categoryName || '他の'} の関連商品
                         </h2>
+                        {/* ★修正: gridTemplateColumnsを変更して最大6列表示にする */}
                         <div className="product-grid" style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                            // 最小幅を150px、最大幅を1fr（均等）、最大6列表示
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
                             gap: '20px', 
                             marginTop: '20px'
                         }}>

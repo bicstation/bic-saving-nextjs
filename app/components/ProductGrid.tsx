@@ -1,31 +1,29 @@
-// /app/components/ProductGrid.tsx
+// /app/components/ProductGrid.tsx (最終確定版 - CSS Grid強制適用)
 
 import React from 'react';
 import { Product } from '@/types/index';
-import ProductCard from '@/app/components/ProductCard';
+import ProductCard from './ProductCard'; 
 
 interface ProductGridProps {
     products: Product[];
-    columns?: number;
 }
 
-/**
- * 商品一覧をグリッドレイアウトで表示する汎用コンポーネント
- * - レスポンシブ設定: モバイル2列 → デスクトップ6列
- */
 const ProductGrid: React.FC<ProductGridProps> = ({ products }) => {
-    if (!products || products.length === 0) {
-        return <p>該当する商品が見つかりませんでした。</p>;
-    }
-    
     return (
         <div 
-            // lg:grid-cols-6 を使用して、1024px以上で確実に6列を保証
-            // カスタムCSSで強制的に6列を適用できるように、このクラス名はそのまま維持
-            className="product-grid-container grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 mt-5"
+            className="product-grid-container mt-5"
+            // ★★★ 修正箇所: style属性で、個別ページと同じ CSS Grid を適用 ★★★
+            style={{
+                display: 'grid',
+                // 6列表示（約1/6幅）に必要な最小幅 200px を設定
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: '16px', // Tailwindの gap-4 (16px) に相当
+                width: '100%' // 親の幅を完全に使う
+            }}
         >
-            {products.map(product => (
-                <ProductCard key={product.id} product={product} /> 
+            {products.map((product) => (
+                // ProductCard には引き続き width 系のクラスは不要です
+                <ProductCard key={product.id} product={product} />
             ))}
         </div>
     );

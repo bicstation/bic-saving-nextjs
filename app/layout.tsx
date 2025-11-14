@@ -1,4 +1,4 @@
-// /app/layout.tsx (サイドバー付き全幅表示 修正版)
+// /app/layout.tsx (カスタムCSSレイアウト依存版の最終コード)
 
 import type { Metadata, Viewport } from "next"; 
 import { Inter } from "next/font/google";
@@ -8,17 +8,19 @@ import "./globals.css";
 // コンポーネントのインポート
 import Header from './components/Header';
 import Footer from './components/Footer';
-import CategorySidebar from './components/CategorySidebar'; // ★サイドバー復活★
+import CategorySidebar from './components/CategorySidebar'; // サイドバー
 
 // データ取得関数のインポート
-import { getCategories, getAllMakers } from "@/lib/data"; // ★データ取得復活★
+import { getCategories, getAllMakers } from "@/lib/data"; // データ取得
 
 const inter = Inter({ subsets: ["latin"] });
-const SITE_DOMAIN = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com';
 
+// ★★★ 環境変数から値を取得し、定数として定義 ★★★
+const SITE_DOMAIN = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'ECサイト';
+// ★★★ ----------------------------------------- ★★★
 
 // --- Viewport & Metadata ---
-// ... (変更なし)
 
 export const viewport: Viewport = {
     width: 'device-width', 
@@ -28,11 +30,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
     title: {
-        template: '%s | BIC-SAVING ECサイト',
-        default: 'BIC-SAVING ECサイト トップページ',
+        template: `%s | ${SITE_NAME}`, // ★ SITE_NAMEを適用 ★
+        default: `${SITE_NAME} トップページ`, // ★ SITE_NAMEを適用 ★
     },
     description: 'VPSで構築されたNext.jsベースのECサイト。',
-    metadataBase: new URL(SITE_DOMAIN),
+    metadataBase: new URL(SITE_DOMAIN), // ★ SITE_DOMAINを適用 ★
     alternates: { canonical: SITE_DOMAIN },
     robots: { index: true, follow: true },
 };
@@ -62,10 +64,14 @@ export default async function RootLayout({
                     <Header /> 
                 </Suspense>
                 
-                {/* ★修正: 2カラムレイアウトを復活 (globals.cssで max-width を広げる) ★ */}
-                <div className="container page-layout"> 
+                {/* ★★★ 修正箇所: レイアウト制御クラスをすべて削除 (Tailwind flex/gap/lg:...) ★★★ 
+                    レイアウトは globals.css の .page-layout で制御されます。
+                */}
+                <div className="container mx-auto p-4 page-layout"> 
                     
-                    {/* ★ サイドバー (左側) ★ */}
+                    {/* ★ サイドバー (左側) ★ 
+                       width: 280px と flex-shrink: 0 は globals.css の .sidebar が制御。
+                    */}
                     <aside className="sidebar"> 
                         <Suspense fallback={<div>Loading Filters...</div>}>
                             <CategorySidebar 
@@ -73,12 +79,15 @@ export default async function RootLayout({
                                 makers={safeAllMakers} 
                             />
                         </Suspense>
+
                     </aside>
                     
-                    {/* ★ メインコンテンツ (右側) ★ */}
+                    {/* ★ メインコンテンツ (右側 - 残りの幅) ★ 
+                       flex-grow: 1 と min-width: 0 は globals.css の .main-content が制御。
+                    */}
                     <main 
                         className="main-content" 
-                        style={{ minHeight: '80vh', padding: '20px 0 20px 20px' }}
+                        style={{ minHeight: '80vh' }}
                     >
                         <Suspense fallback={<div>Loading Content...</div>}> 
                             {children}

@@ -1,4 +1,4 @@
-// /app/page.tsx (リファクタリング最終版)
+// /app/page.tsx (最終版)
 
 export const dynamic = "force-dynamic";
 
@@ -9,20 +9,22 @@ import type { Metadata } from "next";
 // コンポーネントのインポート
 import Pagination from "./components/Pagination";
 import ProductGrid from "./components/ProductGrid";
+// import ViewportDisplay from "./components/ViewportDisplay"; // Viewport表示用
 
-// データ取得関数のインポート
-import { getProducts, getCategories } from "@/lib/data"; 
+// データ取得関数のインポート (RootLayoutで取得済みのカテゴリ/メーカーは不要)
+import { getProducts } from "@/lib/data"; 
 
 // 型定義のインポート
-import { HomePageProps } from "@/types/index"; 
+import { HomePageProps, ProductData } from "@/types/index"; 
 
+// 環境変数から PRODUCTION_URL を取得
 const PRODUCTION_URL = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com'; 
 
 // --- 1. メタデータの生成 (SEO対策) ---
 export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
     
+    // searchParamsの解決を待つ
     const searchParamsObj = (await searchParams) || {};
-
     const canonicalUrl = `${PRODUCTION_URL}/`; 
 
     return {
@@ -38,26 +40,28 @@ export async function generateMetadata({ searchParams }: HomePageProps): Promise
 // --- 2. ページコンポーネント本体 (Server Component) ---
 export default async function HomePage({ searchParams }: HomePageProps) { 
     
+    // searchParamsの解決を待つ
     const searchParamsObj = (await searchParams) || {};
     const { page } = searchParamsObj;
 
+    // ページ番号のクリーンアップと初期値設定
     const pageParam = (Array.isArray(page) ? page[0] : page) || '1'; 
     const currentPage = parseInt(pageParam, 10);
     
     const pageSize = 12;
 
-    const [productData, categories] = await Promise.all([
+    // 商品データのみを取得
+    const [productData] = await Promise.all([
         getProducts({ 
             page: currentPage, 
             limit: pageSize,
-            categoryId: null,
-            query: null
+            categoryId: null, // トップページではカテゴリIDを指定しない
+            query: null // トップページでは検索クエリを指定しない
         }), 
-        getCategories(),
     ]);
 
-    const { products, totalPages } = productData;
-    const finalCategories = categories;
+    // 型アサーションを使用してデータ構造を保証
+    const { products, totalPages } = productData as ProductData;
 
     // 構造化データ（Organization/WebSiteスキーマ）の定義
     const siteSchema = {
@@ -65,7 +69,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         "@graph": [
             {
                 "@type": "WebSite",
-                "name": "BIC-SAVING Next.js ECサイト",
+                "name": "BIC-SAVING Next.js ECサイト", // サイト名
                 "url": PRODUCTION_URL,
                 "potentialAction": {
                     "@type": "SearchAction",
@@ -75,7 +79,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             },
             {
                 "@type": "Organization",
-                "name": "BIC-SAVING",
+                "name": "BIC-SAVING", // 組織名
                 "url": PRODUCTION_URL,
                 "logo": `${PRODUCTION_URL}/og-image.png`,
                 "sameAs": []
@@ -85,30 +89,37 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
     return (
         <>
+            {/* JSON-LD 構造化データを出力 */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(siteSchema) }}
             />
             
-            <main className="page-layout">
-                <section className="main-content">
-                    <div className="breadcrumb">
-                        <Link href="/">ホーム</Link>
-                    </div>
+            {/* ★★★ RootLayoutの <main> タグ内に入るコンテンツのみを返す ★★★ */}
+            <section className="min-w-0"> 
+                
+                {/* ViewportDisplay は Client Component */}
+                {/* <ViewportDisplay />  */}
 
-                    <h2>🛒 ピックアップ商品 (Page {currentPage})</h2>
-                    
-                    {products.length === 0 ? (
-                        <p>商品が見つかりませんでした。</p>
-                    ) : (
-                        <ProductGrid products={products} />
-                    )}
+                <div className="breadcrumb text-sm mb-4">
+                    <Link href="/">ホーム</Link>
+                </div>
 
-                    <Suspense fallback={<div>ページネーション読み込み中...</div>}>
-                        <Pagination totalPages={totalPages} />
-                    </Suspense>
-                </section>
-            </main>
+                <h2 className="text-3xl font-bold mb-6">🛒 ピックアップ商品 (Page {currentPage})</h2>
+                
+                {products.length === 0 ? (
+                    <p>商品が見つかりませんでした。</p>
+                ) : (
+                    <ProductGrid products={products} />
+                )}
+
+                <Suspense fallback={<div>ページネーション読み込み中...</div>}>
+                    <Pagination 
+                        totalPages={totalPages} 
+                        // basePath="/" // basePathのデフォルト値は現在URLなのでコメントアウト
+                    />
+                </Suspense>
+            </section>
         </>
     );
 }
