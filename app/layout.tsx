@@ -1,9 +1,11 @@
-// /app/layout.tsx (カスタムCSSレイアウト依存版の最終コード)
+// /app/layout.tsx (修正案)
 
 import type { Metadata, Viewport } from "next"; 
 import { Inter } from "next/font/google";
 import { Suspense } from 'react'; 
 import "./globals.css"; 
+// ★ next/script をインポート ★
+import Script from 'next/script'; 
 
 // コンポーネントのインポート
 import Header from './components/Header';
@@ -21,23 +23,7 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'ECサイト';
 // ★★★ ----------------------------------------- ★★★
 
 // --- Viewport & Metadata ---
-
-export const viewport: Viewport = {
-    width: 'device-width', 
-    initialScale: 1,
-    maximumScale: 1, 
-};
-
-export const metadata: Metadata = {
-    title: {
-        template: `%s | ${SITE_NAME}`, // ★ SITE_NAMEを適用 ★
-        default: `${SITE_NAME} トップページ`, // ★ SITE_NAMEを適用 ★
-    },
-    description: 'VPSで構築されたNext.jsベースのECサイト。',
-    metadataBase: new URL(SITE_DOMAIN), // ★ SITE_DOMAINを適用 ★
-    alternates: { canonical: SITE_DOMAIN },
-    robots: { index: true, follow: true },
-};
+// ... (Viewport & Metadata の定義は省略) ...
 
 
 // --- Root Layout Component ---
@@ -48,30 +34,29 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     
-    // カテゴリとメーカーのデータを並行取得
-    const [ecCategories, allMakers] = await Promise.all([
-        getCategories().catch(() => []), 
-        getAllMakers().catch(() => []),
-    ]);
-    const safeECCategories = Array.isArray(ecCategories) ? ecCategories : [];
-    const safeAllMakers = Array.isArray(allMakers) ? allMakers : [];
+    // ... (データ取得ロジックは省略) ...
 
     return (
         <html lang="ja">
+            {/* ★★★ Rakuten Automate スクリプトを <head> に相当する場所で読み込む ★★★ */}
+            {/* strategy="beforeInteractive" で、可能な限り早くロードさせます。 */}
+            <Script
+                src="/rakuten_automate.js" // /public/rakuten_automate.js に配置した場合のパス
+                strategy="beforeInteractive"
+                id="rakuten-automate-script"
+            />
+            {/* ★★★ ------------------------------------------------------------------ ★★★ */}
+            
             <body className={inter.className}>
                 
                 <Suspense fallback={<div>Loading Header...</div>}>
                     <Header /> 
                 </Suspense>
                 
-                {/* ★★★ 修正箇所: レイアウト制御クラスをすべて削除 (Tailwind flex/gap/lg:...) ★★★ 
-                    レイアウトは globals.css の .page-layout で制御されます。
-                */}
+                {/* ★★★ メインコンテンツのレイアウト ★★★ */}
                 <div className="container mx-auto p-4 page-layout"> 
                     
-                    {/* ★ サイドバー (左側) ★ 
-                       width: 280px と flex-shrink: 0 は globals.css の .sidebar が制御。
-                    */}
+                    {/* ★ サイドバー (左側) ★ */}
                     <aside className="sidebar"> 
                         <Suspense fallback={<div>Loading Filters...</div>}>
                             <CategorySidebar 
@@ -79,12 +64,9 @@ export default async function RootLayout({
                                 makers={safeAllMakers} 
                             />
                         </Suspense>
-
                     </aside>
                     
-                    {/* ★ メインコンテンツ (右側 - 残りの幅) ★ 
-                       flex-grow: 1 と min-width: 0 は globals.css の .main-content が制御。
-                    */}
+                    {/* ★ メインコンテンツ (右側 - 残りの幅) ★ */}
                     <main 
                         className="main-content" 
                         style={{ minHeight: '80vh' }}
@@ -97,7 +79,6 @@ export default async function RootLayout({
                 </div>
                 
                 <Footer /> 
-
             </body>
         </html>
     );
