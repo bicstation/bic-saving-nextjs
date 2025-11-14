@@ -1,4 +1,4 @@
-// lib/wordpress.ts (HTTPS修正版 + JSONパースの防御的処理 + getPostsの厳密なフィルタリング)
+// lib/wordpress.ts (HTTPS修正版 + JSONパースの防御的処理 + PostSummary型導入)
 
 // 記事取得のベースURLをHTTPSに修正
 const BASE_URL = "https://blog.bic-saving.com/wp-json/wp/v2";
@@ -29,7 +29,7 @@ export interface Post {
     slug: string;
     link: string; 
     title: RenderedContent;
-    content: RenderedContent;
+    content: RenderedContent; // 詳細記事ページ用で必須
     date: string;
     categories: number[]; 
     featured_media_url?: string; 
@@ -37,6 +37,22 @@ export interface Post {
     _embedded?: {
         'wp:featuredmedia'?: FeaturedMedia[];
     };
+}
+
+/**
+ * ★★★ NEW ★★★
+ * 記事一覧ページ用 (contentを持たない) の型
+ * getSalePosts の戻り値として使用
+ */
+export interface PostSummary {
+    id: number;
+    slug: string;
+    link: string; 
+    title: RenderedContent;
+    date: string;
+    categories: number[]; 
+    featured_media_url?: string; 
+    excerpt?: RenderedContent; 
 }
 
 
@@ -72,9 +88,10 @@ export interface FilterParams {
 
 /**
  * 全記事一覧を取得する (カテゴリID/タグIDによるフィルタリングに対応)
+ * ★★★ 戻り値の型を PostSummary[] に変更 ★★★
  * @param params - オプションのフィルタリングパラメータ (categoryまたはtag)
  */
-export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
+export async function getSalePosts(params?: FilterParams): Promise<PostSummary[]> {
     let url = `${WORDPRESS_API_URL}?_embed`;
 
     if (params?.category) {
@@ -95,14 +112,30 @@ export async function getSalePosts(params?: FilterParams): Promise<Post[]> {
             return [];
         }
 
-        // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawData: any = await res.json(); 
-        const posts: Post[] = rawData || []; 
+        const postsArray: any[] = rawData || []; 
         
-        // 配列であることを確認し、配列内の要素が健全であることをフィルタリングで確認
-        return Array.isArray(posts) 
-            ? posts.filter(post => post && typeof post.slug === 'string') 
-            : []; 
+        if (!Array.isArray(postsArray)) {
+             return [];
+        }
+
+        // 健全性チェック (slugが存在すること)
+        const filteredPosts = postsArray.filter(post => 
+            post && typeof post === 'object' && typeof post.slug === 'string'
+        );
+        
+        // ★★★ 修正: 必要な PostSummary のプロパティのみを明示的にマッピング ★★★
+        return filteredPosts.map(post => ({
+            id: post.id,
+            slug: post.slug,
+            link: post.link,
+            title: post.title, 
+            date: post.date,
+            categories: post.categories, 
+            excerpt: post.excerpt,
+            // content や _embedded は除外し、シリアライズエラーを回避
+            featured_media_url: getFeaturedImageUrl(post as Post) 
+        }));
 
     } catch (error) {
         console.error("Error fetching sale posts in getSalePosts:", error);
@@ -158,7 +191,7 @@ export async function getWPCategories(): Promise<WPCategory[]> {
         return Array.isArray(categories) ? categories : [];
 
     } catch (error) {
-        console.log("Error fetching categories in getWPCategories:", error); // console.errorからconsole.logに変更
+        console.log("Error fetching categories in getWPCategories:", error); 
         return []; 
     }
 }
@@ -208,7 +241,6 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
 
         // ★ 修正: rawDataを安全に取得し、undefined/null を空配列として扱う ★
         const rawPosts: any = await res.json();
-        // rawPostsが falsy の場合、空の配列として扱う
         const postsArray: any[] = rawPosts || []; 
 
         if (!Array.isArray(postsArray)) {
@@ -216,16 +248,22 @@ export async function getPosts(count: number = 100): Promise<Post[]> {
             return [];
         }
         
-        // ★★★ 厳密なフィルタリングを追加 ★★★
-        // 1. 要素自体が null や undefined でないこと (post)
-        // 2. post.slug が存在し、文字列であること ( Next.jsのSSGに必須のプロパティ)
+        // 厳密なフィルタリング
         const filteredPosts = postsArray.filter(post => 
             post && typeof post === 'object' && typeof post.slug === 'string'
         );
         
+        // ★★★ 修正: 必要な Post のプロパティのみを明示的にマッピング ★★★
         return filteredPosts.map(post => ({
-            ...post,
+            id: post.id,
+            slug: post.slug,
+            link: post.link,
+            title: post.title,
+            content: post.content, // Post型では content が必須
+            date: post.date,
             categories: post.categories, 
+            excerpt: post.excerpt,
+            // _embedded は getFeaturedImageUrlで利用するのみにし、Postオブジェクトには直接渡さない
             featured_media_url: getFeaturedImageUrl(post as Post) 
         }));
     } catch (error) {
@@ -290,6 +328,8 @@ export async function getTagNameById(id: number): Promise<string | null> {
 export function getFeaturedImageUrl(post: Post): string | null {
     const media = post._embedded?.['wp:featuredmedia'];
     if (media && media.length > 0) {
+        // PostSummary型を引数に取る場合は、_embedded が存在しないため、型アサーションが必要な場合がありますが
+        // ここでは getSalePosts の map 内で post as Post として渡しているため、そのまま利用できます。
         return media[0].source_url; 
     }
     return null;

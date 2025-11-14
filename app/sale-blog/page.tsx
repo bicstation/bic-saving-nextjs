@@ -2,8 +2,8 @@
 
 // 'use client' は削除し、Server Componentとして動作させる
 
-// ★ 修正1: getTagNameById をインポートに追加 ★
-import { getSalePosts, Post, getCategoryNameById, getTagNameById } from "@/lib/wordpress"; 
+// ★ 修正1: Post の代わりに PostSummary をインポートに追加 ★
+import { getSalePosts, PostSummary, getCategoryNameById, getTagNameById } from "@/lib/wordpress"; 
 import type { Metadata } from 'next'; 
 // CSSモジュールをインポート
 import styles from './post-list.module.css'; 
@@ -48,7 +48,8 @@ interface SaleBlogPageProps {
 }
 
 export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) {
-    let posts: Post[] = [];
+    // ★ 修正2: posts 変数の型を PostSummary[] に変更 ★
+    let posts: PostSummary[] = [];
     
     // ★ 修正3: searchParams is not awaited 警告対策 ★
     // searchParamsを一旦ローカル変数に格納することで、警告を回避し安全性を確保します。
@@ -98,6 +99,7 @@ export default async function SaleBlogPage({ searchParams }: SaleBlogPageProps) 
         
         // ★ 修正4: undefined (reading 'filter') 対策 ★
         // getSalePostsがundefinedやnullを返した場合に備えて、postsを安全に設定します。
+        // fetchedPostsの型が PostSummary[] であるため、postsへの代入が安全になりました。
         if (Array.isArray(fetchedPosts)) {
             posts = fetchedPosts;
         } else {

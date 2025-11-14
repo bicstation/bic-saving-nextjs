@@ -2,14 +2,15 @@
 
 'use client'; // ★★★ Hydration Error 対策として維持 ★★★
 
-import { getFeaturedImageUrl, Post } from "@/lib/wordpress"; 
+// ★ 修正1: PostSummary をインポートに追加し、PostSummary を使用 ★
+import { getFeaturedImageUrl, PostSummary, Post } from "@/lib/wordpress"; 
 import Link from 'next/link';
 import Image from 'next/image'; 
 import styles from './post-list.module.css'; 
 
-// Post型はどこかの lib/wordpress.ts からインポートされているはず
+// ★ 修正2: Post[] ではなく PostSummary[] を使用するように型定義を修正 ★
 interface BlogListClientProps {
-    posts: Post[];
+    posts: PostSummary[];
 }
 
 /**
@@ -37,7 +38,9 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
     return (
         <div className={styles.postList}> 
             {posts.map((post) => {
-                const imageUrl = getFeaturedImageUrl(post); 
+                // getFeaturedImageUrl は Post 型を引数にとるため、一時的な型アサーションを使用
+                // ただし、post.content を使用しないため、PostSummary のままで動作します
+                const imageUrl = getFeaturedImageUrl(post as Post); 
                 
                 return (
                     <article key={post.id} className={styles.articleCard}>
@@ -74,8 +77,8 @@ export default function BlogListClient({ posts }: BlogListClientProps) {
                             
                             <div 
                                 className={styles.articleExcerpt} 
-                                // ★★★ 修正: getSafeExcerpt 関数を使用してランタイムエラーを防ぐ ★★★
-                                dangerouslySetInnerHTML={{ __html: getSafeExcerpt(post.content) }} 
+                                // ★★★ 修正3: content ではなく excerpt (抜粋) を使用するように修正 ★★★
+                                dangerouslySetInnerHTML={{ __html: getSafeExcerpt(post.excerpt) }} 
                             />
                             
                             <Link href={`/sale-blog/${post.slug}`} className={styles.detailLink}>
