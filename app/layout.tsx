@@ -1,19 +1,18 @@
-// /app/layout.tsx (修正案)
+// /app/layout.tsx (データ取得ロジック分離後の最終コード)
 
 import type { Metadata, Viewport } from "next"; 
 import { Inter } from "next/font/google";
 import { Suspense } from 'react'; 
 import "./globals.css"; 
-// ★ next/script をインポート ★
-import Script from 'next/script'; 
+import Script from 'next/script'; // ★ next/script をインポート ★
 
 // コンポーネントのインポート
 import Header from './components/Header';
 import Footer from './components/Footer';
-import CategorySidebar from './components/CategorySidebar'; // サイドバー
+import CategoryDataFetcher from './components/CategoryDataFetcher'; // ★ 新コンポーネントをインポート ★
 
-// データ取得関数のインポート
-import { getCategories, getAllMakers } from "@/lib/data"; // データ取得
+// データ取得関数のインポート (CategoryDataFetcherで使用するため残す)
+// import { getCategories, getAllMakers } from "@/lib/data"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +22,23 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'ECサイト';
 // ★★★ ----------------------------------------- ★★★
 
 // --- Viewport & Metadata ---
-// ... (Viewport & Metadata の定義は省略) ...
+
+export const viewport: Viewport = {
+    width: 'device-width', 
+    initialScale: 1,
+    maximumScale: 1, 
+};
+
+export const metadata: Metadata = {
+    title: {
+        template: `%s | ${SITE_NAME}`, 
+        default: `${SITE_NAME} トップページ`, 
+    },
+    description: 'VPSで構築されたNext.jsベースのECサイト。',
+    metadataBase: new URL(SITE_DOMAIN), 
+    alternates: { canonical: SITE_DOMAIN },
+    robots: { index: true, follow: true },
+};
 
 
 // --- Root Layout Component ---
@@ -34,12 +49,16 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     
-    // ... (データ取得ロジックは省略) ...
+    // ★★★ 削除: RootLayoutからデータ取得と safeECCategories の定義ロジックを削除 ★★★
+    // const [ecCategories, allMakers] = await Promise.all([...]);
+    // const safeECCategories = Array.isArray(ecCategories) ? ecCategories : [];
+    // const safeAllMakers = Array.isArray(allMakers) ? allMakers : [];
+    // ★★★ ---------------------------------------------------------------------- ★★★
+
 
     return (
         <html lang="ja">
             {/* ★★★ Rakuten Automate スクリプトを <head> に相当する場所で読み込む ★★★ */}
-            {/* strategy="beforeInteractive" で、可能な限り早くロードさせます。 */}
             <Script
                 src="/rakuten_automate.js" // /public/rakuten_automate.js に配置した場合のパス
                 strategy="beforeInteractive"
@@ -56,14 +75,13 @@ export default async function RootLayout({
                 {/* ★★★ メインコンテンツのレイアウト ★★★ */}
                 <div className="container mx-auto p-4 page-layout"> 
                     
-                    {/* ★ サイドバー (左側) ★ */}
+                    {/* ★ サイドバー (左側) ★ 
+                       データ取得は CategoryDataFetcher 内で実行されます。
+                    */}
                     <aside className="sidebar"> 
-                        <Suspense fallback={<div>Loading Filters...</div>}>
-                            <CategorySidebar 
-                                categories={safeECCategories}
-                                makers={safeAllMakers} 
-                            />
-                        </Suspense>
+                        {/* ★★★ 修正箇所: CategoryDataFetcher に置き換え ★★★ */}
+                        <CategoryDataFetcher />
+                        {/* ★★★ ------------------------------------- ★★★ */}
                     </aside>
                     
                     {/* ★ メインコンテンツ (右側 - 残りの幅) ★ */}
@@ -79,6 +97,7 @@ export default async function RootLayout({
                 </div>
                 
                 <Footer /> 
+
             </body>
         </html>
     );
