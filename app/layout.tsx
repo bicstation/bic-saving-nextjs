@@ -60,7 +60,7 @@ export default async function RootLayout({
         <html lang="ja">
             {/* ★★★ Rakuten Automate スクリプトを <head> に相当する場所で読み込む ★★★ */}
             <Script
-                src="/rakuten_automate.js" // /public/rakuten_automate.js に配置した場合のパス
+                src="/public/rakuten_automate.js" // /public/rakuten_automate.js に配置した場合のパス
                 strategy="beforeInteractive"
                 id="rakuten-automate-script"
             />
