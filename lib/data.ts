@@ -3,7 +3,7 @@
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
 // 1. 環境変数からベースURLを取得 (例: "https://api.bic-saving.com")
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
 
 // 2. APIのバージョン付きベースURLを定義
 const API_BASE_URL = `${BASE_URL}/api/v1`; 
