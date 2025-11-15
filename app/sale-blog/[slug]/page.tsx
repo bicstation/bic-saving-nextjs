@@ -8,12 +8,85 @@ import type { Metadata } from 'next';
 // CSSモジュールをインポート
 import styles from './post-detail.module.css';
 
+// --- (インポート) アフィリエイトリンク生成とAPIラッパー ---
+import { generateAffiliateUrl } from "@/lib/affiliate"; 
+import { resolveMerchantId } from "@/lib/api"; // ★ APIラッパーを追加 ★
+// --- (インポート) HTML解析ライブラリ ---
+import * as cheerio from 'cheerio'; 
+
 // ISR の設定: 1時間 (3600秒) ごとにバックグラウンドで再生成
 export const revalidate = 3600; 
 
 // PostDetailPageコンポーネントで使う型定義を再配置
 interface PostDetailPageProps {
-params: { slug: string };
+    params: { slug: string };
+}
+
+// ★★★ 既存のハードコードされたマッピングとヘルパー関数は削除 ★★★
+
+/**
+ * 記事のHTMLコンテンツ内のリンクをアフィリエイトリンクに非同期で変換する関数
+ * @param htmlContent - WordPressから取得した生のHTMLコンテンツ
+ * @returns 変換後のHTMLコンテンツ (Promise)
+ */
+async function processContentForAffiliateLinks(htmlContent: string): Promise<string> {
+    
+    // 1. cheerioでHTMLをロード
+    const $ = cheerio.load(htmlContent, null, false); 
+
+    // 2. 記事内のすべての <a> タグを抽出
+    const links = $('a');
+
+    // 3. 各リンクの非同期置換処理を格納する配列
+    const linkPromises: Promise<void>[] = [];
+
+    links.each((index, element) => {
+        const $a = $(element);
+        const originalHref = $a.attr('href');
+        
+        // 即時実行関数で非同期処理を作成し、Promiseを配列に追加
+        linkPromises.push((async () => {
+            if (!originalHref || !originalHref.startsWith('http')) {
+                return; // hrefがない、または外部リンクでない場合はスキップ
+            }
+
+            try {
+                // 3-1. ドメイン名を取得
+                const url = new URL(originalHref);
+                const domain = url.hostname;
+                
+                // 3-2. バックエンドAPIを呼び出し、MIDを取得
+                const merchantData = await resolveMerchantId(domain);
+
+                if (merchantData && merchantData.merchant_id) {
+                    // 3-3. アフィリエイトリンクを生成
+                    const affiliateUrl = generateAffiliateUrl(
+                        originalHref, 
+                        merchantData.merchant_id
+                    );
+                    
+                    // 3-4. href属性をアフィリエイトURLに置き換え
+                    $a.attr('href', affiliateUrl);
+                    
+                    // 3-5. アフィリエイトリンクに必要な属性を追加
+                    // noopener noreferrer は SEO/セキュリティ上推奨
+                    $a.attr('target', '_blank');
+                    $a.attr('rel', 'nofollow noopener noreferrer');
+                }
+                
+            } catch (e) {
+                // APIエラーが発生した場合でも、元のリンクを維持
+                // console.error(`Failed to process link ${originalHref}:`, e);
+            }
+        })());
+    });
+
+    // 4. すべてのリンク置換処理が完了するのを待つ
+    // これにより、すべてのAPIコールが完了するまで次の処理に進まない
+    await Promise.all(linkPromises);
+
+    // 5. 修正後のHTMLを文字列として返す
+    return $.html();
 }
 
 
@@ -22,127 +95,123 @@ params: { slug: string };
 */
 export async function generateMetadata({ params }: PostDetailPageProps): Promise<Metadata> {
 
-// ★ 修正1: paramsをawaitし、エラーを回避する ★
-const awaitedParams = await params;
-const slug = awaitedParams.slug;
+    const slug = params.slug;
 
-// const resolvedParams = params; // 旧ロジックは不要
-const post = await getPostBySlug(slug); // awaitした slug を使用 
+    const post = await getPostBySlug(slug);
 
-if (!post) {
- return {};
-}
+    if (!post) {
+        return {};
+    }
 
-// description の抽出をより防御的に行う 
-const descriptionHtml = post.excerpt?.rendered || post.content?.rendered; 
+    // description の抽出をより防御的に行う 
+    const descriptionHtml = post.excerpt?.rendered || post.content?.rendered; 
 
-let description = 'セール情報詳細ページです。'; // フォールバック値
+    let description = 'セール情報詳細ページです。'; // フォールバック値
 
-if (descriptionHtml) {
- // HTMLタグを除去し、160文字に切り詰める
- description = descriptionHtml.replace(/<[^>]*>/g, '').substring(0, 160);
-}
+    if (descriptionHtml) {
+        // HTMLタグを除去し、160文字に切り詰める
+        description = descriptionHtml.replace(/<[^>]*>/g, '').substring(0, 160);
+    }
 
-const imageUrl = getFeaturedImageUrl(post);
-// 環境変数を使用するか、ハードコードされたURLを使用
-const postUrl = `https://www.bic-saving.com/sale-blog/${post.slug}`;
+    const imageUrl = getFeaturedImageUrl(post);
+    // 環境変数を使用するか、ハードコードされたURLを使用
+    const postUrl = `https://www.bic-saving.com/sale-blog/${post.slug}`;
 
-return {
- // title から HTMLタグを除去
- title: `${post.title.rendered.replace(/<[^>]*>/g, '') || "記事タイトルなし"} | bic-saving セール情報`,
- description: description,
- alternates: {
- canonical: postUrl,
- },
- openGraph: {
- title: post.title.rendered.replace(/<[^>]*>/g, ''),
- description: description,
- url: postUrl,
- type: 'article', 
- // images プロパティはURLの配列を期待
- images: imageUrl ? [{ url: imageUrl }] : undefined,
- },
-};
+    return {
+        // title から HTMLタグを除去
+        title: `${post.title.rendered.replace(/<[^>]*>/g, '') || "記事タイトルなし"} | bic-saving セール情報`,
+        description: description,
+        alternates: {
+            canonical: postUrl,
+        },
+        openGraph: {
+            title: post.title.rendered.replace(/<[^>]*>/g, ''),
+            description: description,
+            url: postUrl,
+            type: 'article', 
+            // images プロパティはURLの配列を期待
+            images: imageUrl ? [{ url: imageUrl }] : undefined,
+        },
+    };
 }
 
 /**
 * 動的な静的パスを生成 (Static Generation)
 */
 export async function generateStaticParams() {
-// getPosts の中で Null文字除去などの防御策が既に適用済み
-const posts = await getPosts(100); 
+    // getPosts の中で Null文字除去などの防御策が既に適用済み
+    const posts = await getPosts(100); 
 
-if (!Array.isArray(posts)) {
- console.error("generateStaticParams: getPosts did not return an array.");
- return [];
-}
+    if (!Array.isArray(posts)) {
+        console.error("generateStaticParams: getPosts did not return an array.");
+        return [];
+    }
 
-// postが存在し、かつ slug が有効な文字列である記事のみをフィルターする (既存の安全なロジックを維持)
-return posts
- .filter(post => post && typeof post.slug === 'string' && post.slug.length > 0)
- .map(post => ({
- slug: post.slug,
- }));
+    // postが存在し、かつ slug が有効な文字列である記事のみをフィルターする (既存の安全なロジックを維持)
+    return posts
+        .filter(post => post && typeof post.slug === 'string' && post.slug.length > 0)
+        .map(post => ({
+            slug: post.slug,
+        }));
 }
 
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
 
-// ★ 修正2: paramsをawaitし、エラーを回避する ★
-const awaitedParams = await params;
-const slug = awaitedParams.slug; 
+    const slug = params.slug; 
 
-// const resolvedParams = params; // 旧ロジックは不要
+    // データ取得
+    const post = await getPostBySlug(slug); 
+    const imageUrl = post ? getFeaturedImageUrl(post) : null;
 
-// データ取得
-const post = await getPostBySlug(slug); // awaitした slug を使用 
-const imageUrl = post ? getFeaturedImageUrl(post) : null;
+    if (!post) {
+        // 記事が見つからなかった場合は Next.js の 404 ページを表示
+        notFound();
+    }
 
-if (!post) {
- // 記事が見つからなかった場合は Next.js の 404 ページを表示
- notFound();
-}
+    // post.content.rendered が存在しない場合は空文字列を使用
+    const rawContent = post.content?.rendered || "";
 
-// post.content.rendered が存在しない場合は空文字列を使用
-const processedContent = post.content?.rendered || "";
+    // ★★★ リンク変換ロジックを適用 (awaitで非同期処理を待つ) ★★★
+    const processedContent = await processContentForAffiliateLinks(rawContent);
 
 
-return (
- <main className={styles.postDetailMain}>
- 
- <Link href="/sale-blog" className={styles.backLink}>
-  &larr; 一覧に戻る
- </Link>
- 
- <h1 className={styles.postTitle}
-  // post.title.rendered が存在することは post の存在で保証されている
-  dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
- 
- <p className={styles.postMeta}>
-  公開日: {new Date(post.date).toLocaleDateString('ja-JP')}
- </p>
- 
- {imageUrl && (
-  <div className={styles.featuredImageWrapper}>
-  <Image 
-   src={imageUrl} 
-   alt={`セール情報: ${post.title.rendered} | bic-saving`}
-   width={800}
-   height={500}
-   sizes="(max-width: 768px) 100vw, 800px" // レスポンシブ対応を追加
-   style={{ width: '100%', height: 'auto' }} // レスポンシブ対応を追加
-   priority
-  />
-  </div>
- )}
- 
- <div className={styles.postContent}>
-  <div dangerouslySetInnerHTML={{ __html: processedContent }} />
- </div>
- 
- <Link href="/sale-blog" className={styles.backLinkBottom}>
-  &larr; 一覧に戻る
- </Link>
- </main>
-);
+    return (
+        <main className={styles.postDetailMain}>
+        
+            <Link href="/sale-blog" className={styles.backLink}>
+            &larr; 一覧に戻る
+            </Link>
+            
+            <h1 className={styles.postTitle}
+            dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+            
+            <p className={styles.postMeta}>
+            公開日: {new Date(post.date).toLocaleDateString('ja-JP')}
+            </p>
+            
+            {imageUrl && (
+            <div className={styles.featuredImageWrapper}>
+                <Image 
+                src={imageUrl} 
+                alt={`セール情報: ${post.title.rendered} | bic-saving`}
+                width={800}
+                height={500}
+                sizes="(max-width: 768px) 100vw, 800px"
+                style={{ width: '100%', height: 'auto' }}
+                priority
+                />
+            </div>
+            )}
+            
+            <div className={styles.postContent}>
+                {/* ★★★ 変換済みのコンテンツをレンダリング ★★★ */}
+                <div dangerouslySetInnerHTML={{ __html: processedContent }} />
+            </div>
+            
+            <Link href="/sale-blog" className={styles.backLinkBottom}>
+            &larr; 一覧に戻る
+            </Link>
+        </main>
+    );
 }
