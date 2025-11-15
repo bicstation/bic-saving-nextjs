@@ -22,7 +22,8 @@ interface PostDetailPageProps {
     params: { slug: string };
 }
 
-// ★★★ 既存のハードコードされたマッピングとヘルパー関数は削除 ★★★
+// L-Share/Rakuten Marketing のアフィリエイトドメインを定義
+const AFFILIATE_DOMAIN = 'click.linksynergy.com';
 
 /**
  * 記事のHTMLコンテンツ内のリンクをアフィリエイトリンクに非同期で変換する関数
@@ -55,6 +56,12 @@ async function processContentForAffiliateLinks(htmlContent: string): Promise<str
                 const url = new URL(originalHref);
                 const domain = url.hostname;
                 
+                // ★★★ 修正: 既にアフィリエイトリンクであればスキップ ★★★
+                if (domain === AFFILIATE_DOMAIN) {
+                    // console.log(`Skipping already processed affiliate link: ${originalHref}`);
+                    return; 
+                }
+                
                 // 3-2. バックエンドAPIを呼び出し、MIDを取得
                 const merchantData = await resolveMerchantId(domain);
 
@@ -69,7 +76,6 @@ async function processContentForAffiliateLinks(htmlContent: string): Promise<str
                     $a.attr('href', affiliateUrl);
                     
                     // 3-5. アフィリエイトリンクに必要な属性を追加
-                    // noopener noreferrer は SEO/セキュリティ上推奨
                     $a.attr('target', '_blank');
                     $a.attr('rel', 'nofollow noopener noreferrer');
                 }
@@ -82,7 +88,6 @@ async function processContentForAffiliateLinks(htmlContent: string): Promise<str
     });
 
     // 4. すべてのリンク置換処理が完了するのを待つ
-    // これにより、すべてのAPIコールが完了するまで次の処理に進まない
     await Promise.all(linkPromises);
 
     // 5. 修正後のHTMLを文字列として返す

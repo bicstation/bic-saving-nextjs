@@ -18,13 +18,13 @@ export async function resolveMerchantId(domain: string): Promise<MerchantData | 
 
     const endpoint = `${API_BASE_URL}/api/v1/affiliate/mid-resolve`;
     
-    // バックエンドAPIが www.なし の形式を期待しているため、そのまま渡すか、
-    // バックエンドで正規化しているため、ここではそのまま渡してもOK。
+    // バックエンドで www.有無 の正規化を実装済み
     const url = `${endpoint}?domain=${encodeURIComponent(domain)}`;
 
     try {
-        // Next.jsのfetchでキャッシュ無効化（常に最新の情報を取得）
-        const response = await fetch(url, { cache: 'no-store' });
+        // ★修正点: 'cache: no-store' を削除し、Next.jsのビルド時に静的に実行可能にする★
+        // Next.jsのデフォルトのfetch動作では、静的ビルド時に自動でフェッチがキャッシュされます。
+        const response = await fetch(url);
 
         if (response.ok) {
             return (await response.json()) as MerchantData;
@@ -39,7 +39,8 @@ export async function resolveMerchantId(domain: string): Promise<MerchantData | 
         throw new Error(`API Error: ${response.status} - ${await response.text()}`);
 
     } catch (error) {
-        console.error(`Error resolving merchant ID for domain ${domain}:`, error);
+        // click.linksynergy.com を再帰的に処理しようとした際のエラーはここでキャッチされる
+        // console.error(`Error resolving merchant ID for domain ${domain}:`, error);
         return null; // エラーが発生した場合は変換をスキップ
     }
 }
