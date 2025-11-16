@@ -2,11 +2,20 @@
 
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
-// 1. 環境変数からベースURLを取得 (例: "https://api.bic-saving.com")
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
+// 1. 環境変数からベースURLを取得し、フォールバックを設定
+const API_BASE_URL_CONFIGURED = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// 開発環境と本番環境でベースURLを決定 (ホスト名のみ)
+// .env.localで /api/v1 を削除したため、ここでのフォールバックロジックが重要になります。
+const BASE_HOST_URL = 
+    API_BASE_URL_CONFIGURED || 
+    (process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:8003'           // ローカル開発用 (8003を使用)
+        : 'https://api.bic-saving.com');    // 本番デプロイ用フォールバック
 
 // 2. APIのバージョン付きベースURLを定義
-const API_BASE_URL = `${BASE_URL}/api/v1`; 
+// BASE_HOST_URL の末尾のスラッシュを安全に除去してから /api/v1 を追加する
+const API_BASE_URL = BASE_HOST_URL.replace(/\/$/, '') + '/api/v1';
 
 // ====================================================================
 // カテゴリデータ取得関数
@@ -45,8 +54,9 @@ async function getCategories(): Promise<Category[]> {
 async function getAllMakers(): Promise<Maker[]> {
     const apiUrl = `${API_BASE_URL}/makers/`; 
     
-    if (!BASE_URL) {
-           console.error('Environment variable NEXT_PUBLIC_API_BASE_URL is not set.');
+    // API_BASE_URL_INTERNAL のチェックは BASE_HOST_URL で置き換え
+    if (!BASE_HOST_URL) {
+           console.error('Environment variable NEXT_PUBLIC_API_BASE_URL is not set and fallback failed.');
            return [];
     }
     

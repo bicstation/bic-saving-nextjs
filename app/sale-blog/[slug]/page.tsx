@@ -10,122 +10,115 @@ import styles from './post-detail.module.css';
 
 // --- (インポート) アフィリエイトリンク生成とAPIラッパー ---
 import { generateAffiliateUrl } from "@/lib/affiliate";
-import { resolveMerchantId } from "@/lib/api"; // ★ APIラッパーを追加 ★
+import { resolveMerchantId } from "@/lib/api";
 // --- (インポート) HTML解析ライブラリ ---
 import * as cheerio from 'cheerio';
+
+// ★★★ リッチリンクカード機能のための追加インポート ★★★
+import { fetchOGPData } from "@/lib/linkParser"; // OGP/ファビコン取得関数
+import LinkCard from '../../components/LinkCard'; // リンクカードコンポーネント
+import parse, { DOMNode, Element } from 'html-react-parser'; // ★追加: HTMLパースライブラリ
+// ★★★ ----------------------------------------- ★★★
+
 
 // ISR の設定: 1時間 (3600秒) ごとにバックグラウンドで再生成
 export const revalidate = 3600;
 
+// OGPDataの型定義
+interface OGPData {
+title: string | null;
+description: string | null;
+imageUrl: string | null;
+siteUrl: string;
+faviconUrl: string | null;
+}
+interface OGPDataMap {
+[url: string]: OGPData;
+}
+
+
 // PostDetailPageコンポーネントで使う型定義を再配置
 interface PostDetailPageProps {
-    params: { slug: string };
+params: { slug: string };
 }
 
 // L-Share/Rakuten Marketing のアフィリエイトドメインを定義
 const AFFILIATE_DOMAIN = 'click.linksynergy.com';
 
 /**
- * 記事のHTMLコンテンツ内のリンクをアフィリエイトリンクに非同期で変換する関数
- * @param htmlContent - WordPressから取得した生のHTMLコンテンツ
- * @returns 変換後のHTMLコンテンツ (Promise)
- */
-async function processContentForAffiliateLinks(htmlContent: string): Promise<string> {
+* 記事のHTMLコンテンツを処理し、アフィリエイトリンク変換とOGPデータ取得を行う
+* @param htmlContent - WordPressから取得した生のHTMLコンテンツ
+* @returns 変換後のHTMLコンテンツと、記事内リンクのOGPデータマップ (Promise)
+*/
+async function processPostContent(htmlContent: string): Promise<{ processedHtml: string, ogpMap: OGPDataMap }> {
+const $ = cheerio.load(htmlContent, null, false);
+const links = $('a');
+const ogpMap: OGPDataMap = {};
+const linkPromises: Promise<void>[] = [];
 
-    // 1. cheerioでHTMLをロード
-    const $ = cheerio.load(htmlContent, null, false);
+console.log(`[DEBUG: LINKS FOUND] Total links to process: ${links.length}`);
 
-    // 2. 記事内のすべての <a> タグを抽出
-    const links = $('a');
+links.each((index, element) => {
+ const $a = $(element);
+ const originalHref = $a.attr('href');
 
-    // ★★★ デバッグ用のログ出力追加 ★★★
-    console.log(`[DEBUG: LINKS FOUND] Total links: ${links.length}`);
-    links.each((index, element) => {
-        const $a = $(element);
-        const originalHref = $a.attr('href');
-        console.log(`[DEBUG: LINK ${index + 1}] Original HREF: ${originalHref || 'N/A'}`);
-    });
-    console.log(`[DEBUG: END LINKS FOUND]`);
-    // ★★★ デバッグ用のログ出力ここまで ★★★
+ linkPromises.push((async () => {
+ if (!originalHref || !originalHref.startsWith('http')) {
+  return;
+ }
 
-    // 3. 各リンクの非同期置換処理を格納する配列
-    const linkPromises: Promise<void>[] = [];
+ try {
+  const url = new URL(originalHref);
+  const domain = url.hostname;
 
-    links.each((index, element) => {
-        const $a = $(element);
-        const originalHref = $a.attr('href');
+  // 既にアフィリエイトリンクであればスキップ（OGP取得は行う）
+  if (domain === AFFILIATE_DOMAIN) {
+  return;
+  }
+  
+  // ★修正 1: オリジナル URL をカスタム属性に保存 (キーの不一致回避) ★
+  $a.attr('data-original-href', originalHref); 
 
-        // 即時実行関数で非同期処理を作成し、Promiseを配列に追加
-        linkPromises.push((async () => {
-            if (!originalHref || !originalHref.startsWith('http')) {
-                return; // hrefがない、または外部リンクでない場合はスキップ
-            }
+  // 1. OGPデータの取得 (ダイレクトリンクを使用)
+  const ogpData = await fetchOGPData(originalHref);
 
-            try {
-                // 3-1. ドメイン名を取得
-                const url = new URL(originalHref);
-                const domain = url.hostname;
+  // 2. OGPデータが取得できた場合のみアフィリエイト変換を試みる
+  if (ogpData) {
+  // アフィリエイト変換処理
+  const merchantData = await resolveMerchantId(domain);
 
-                // ★★★ 修正: 既にアフィリエイトリンクであればスキップ ★★★
-                if (domain === AFFILIATE_DOMAIN) {
-                    // console.log(`Skipping already processed affiliate link: ${originalHref}`);
-                    return;
-                }
+  if (merchantData && merchantData.merchant_id) {
+   const affiliateUrl = generateAffiliateUrl(
+   originalHref,
+   merchantData.merchant_id
+   );
+   
+   // LinkCardに渡すOGPデータ内のリンクをアフィリエイトURLに上書き
+   ogpData.siteUrl = affiliateUrl;
+   
+   // HTML内の<a>タグもアフィリエイトURLに置き換え
+   $a.attr('href', affiliateUrl);
+   $a.attr('target', '_blank');
+   $a.attr('rel', 'nofollow noopener noreferrer');
+   $a.removeAttr('automate_uuid');
+   
+   console.log(`[AFFILIATE CONVERSION SUCCESS] ${domain}`);
+  }
 
-                // 3-2. バックエンドAPIを呼び出し、MIDを取得
-                const merchantData = await resolveMerchantId(domain);
+  // OGPデータをマップに追加 (キーはオリジナルURL)
+  ogpMap[originalHref] = ogpData;
+  }
 
-                // ★★★ 修正箇所: merchantData の中身を詳細にログ出力する ★★★
-                if (merchantData) {
-                    console.log("✅ Merchant Data Received:", merchantData);
-                } else {
-                    console.log("❌ Merchant Data Not Found (resolveMerchantId returned null).");
-                }
-                // ★★★ 修正箇所ここまで ★★★
+ } catch (e) {
+  console.error(`[ERROR: LINK PROCESS FAILED] Link: ${originalHref}`, e);
+ }
+ })());
+});
 
-                console.log(`[DEBUG: API RETURNED] Domain: ${domain}, MID: ${merchantData?.merchant_id}`);
+await Promise.all(linkPromises);
 
-                if (merchantData && merchantData.merchant_id) {
-                    // 3-3. アフィリエイトリンクを生成
-                    const affiliateUrl = generateAffiliateUrl(
-                        originalHref,
-                        merchantData.merchant_id
-                    );
-
-                    // ★★★ デバッグ用のログ出力追加 ★★★
-                    // このログがサーバーコンソールに出力されれば変換成功が確認できます
-                    console.log(`[AFFILIATE CONVERSION SUCCESS]`);
-                    console.log(`  Source URL: ${originalHref}`);
-                    console.log(`  Merchant ID: ${merchantData.merchant_id}`);
-                    console.log(`  Affiliate URL: ${affiliateUrl}`);
-                    // ★★★ デバッグ用のログ出力ここまで ★★★
-
-                    // 3-4. href属性をアフィリエイトURLに置き換え
-                    $a.attr('href', affiliateUrl);
-
-                    // 3-5. アフィリエイトリンクに必要な属性を追加
-                    $a.attr('target', '_blank');
-                    $a.attr('rel', 'nofollow noopener noreferrer');
-
-                    // ★★★ WordPressの残留属性を強制的に削除する修正を追加 ★★★
-                    $a.removeAttr('automate_uuid');
-                    $a.removeAttr('target');
-                    $a.attr('target', '_blank'); // 正しい値に再設定
-                }
-
-            } catch (e) {
-                // APIエラーが発生した場合でも、元のリンクを維持
-                // console.error(`Failed to process link ${originalHref}:`, e);
-                // console.error(`[ERROR: LINK PROCESS FAILED] Link: ${originalHref}`, e);
-            }
-        })());
-    });
-
-    // 4. すべてのリンク置換処理が完了するのを待つ
-    await Promise.all(linkPromises);
-
-    // 5. 修正後のHTMLを文字列として返す
-    return $.html();
+// 修正後のHTMLとOGPマップを返す
+return { processedHtml: $.html(), ogpMap };
 }
 
 
@@ -134,125 +127,156 @@ async function processContentForAffiliateLinks(htmlContent: string): Promise<str
 */
 export async function generateMetadata({ params }: PostDetailPageProps): Promise<Metadata> {
 
-    // ★修正: paramsオブジェクト全体をawaitしてslugを取得する★
-    const { slug } = await params;
+const { slug } = await params;
 
-    const post = await getPostBySlug(slug);
+const post = await getPostBySlug(slug);
 
-    if (!post) {
-        return {};
-    }
+if (!post) {
+ return {};
+}
 
-    // description の抽出をより防御的に行う 
-    const descriptionHtml = post.excerpt?.rendered || post.content?.rendered;
+// description の抽出をより防御的に行う 
+const descriptionHtml = post.excerpt?.rendered || post.content?.rendered;
 
-    let description = 'セール情報詳細ページです。'; // フォールバック値
+let description = 'セール情報詳細ページです。'; // フォールバック値
 
-    if (descriptionHtml) {
-        // HTMLタグを除去し、160文字に切り詰める
-        description = descriptionHtml.replace(/<[^>]*>/g, '').substring(0, 160);
-    }
+if (descriptionHtml) {
+ // HTMLタグを除去し、160文字に切り詰める
+ description = descriptionHtml.replace(/<[^>]*>/g, '').substring(0, 160);
+}
 
-    const imageUrl = getFeaturedImageUrl(post);
-    // 環境変数を使用するか、ハードコードされたURLを使用
-    const postUrl = `https://www.bic-saving.com/sale-blog/${post.slug}`;
+const imageUrl = getFeaturedImageUrl(post);
+// 環境変数を使用するか、ハードコードされたURLを使用
+const postUrl = `https://www.bic-saving.com/sale-blog/${post.slug}`;
 
-    return {
-        // title から HTMLタグを除去
-        title: `${post.title.rendered.replace(/<[^>]*>/g, '') || "記事タイトルなし"} | bic-saving セール情報`,
-        description: description,
-        alternates: {
-            canonical: postUrl,
-        },
-        openGraph: {
-            title: post.title.rendered.replace(/<[^>]*>/g, ''),
-            description: description,
-            url: postUrl,
-            type: 'article',
-            // images プロパティはURLの配列を期待
-            images: imageUrl ? [{ url: imageUrl }] : undefined,
-        },
-    };
+return {
+ // title から HTMLタグを除去
+ title: `${post.title.rendered.replace(/<[^>]*>/g, '') || "記事タイトルなし"} | bic-saving セール情報`,
+ description: description,
+ alternates: {
+ canonical: postUrl,
+ },
+ openGraph: {
+ title: post.title.rendered.replace(/<[^>]*>/g, ''),
+ description: description,
+ url: postUrl,
+ type: 'article',
+ // images プロパティはURLの配列を期待
+ images: imageUrl ? [{ url: imageUrl }] : undefined,
+ },
+};
 }
 
 /**
 * 動的な静的パスを生成 (Static Generation)
 */
 export async function generateStaticParams() {
-    // getPosts の中で Null文字除去などの防御策が既に適用済み
-    const posts = await getPosts(100);
+// getPosts の中で Null文字除去などの防御策が既に適用済み
+// 開発サーバーのタイムアウトを避けるため、記事数を 100 から 20 に減らしました。
+const posts = await getPosts(20); // ★ 修正済み ★
 
-    if (!Array.isArray(posts)) {
-        console.error("generateStaticParams: getPosts did not return an array.");
-        return [];
-    }
+if (!Array.isArray(posts)) {
+ console.error("generateStaticParams: getPosts did not return an array.");
+ return [];
+}
 
-    // postが存在し、かつ slug が有効な文字列である記事のみをフィルターする (既存の安全なロジックを維持)
-    return posts
-        .filter(post => post && typeof post.slug === 'string' && post.slug.length > 0)
-        .map(post => ({
-            slug: post.slug,
-        }));
+// postが存在し、かつ slug が有効な文字列である記事のみをフィルターする (既存の安全なロジックを維持)
+return posts
+ .filter(post => post && typeof post.slug === 'string' && post.slug.length > 0)
+ .map(post => ({
+ slug: post.slug,
+ }));
 }
 
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
 
-    // ★修正: paramsオブジェクト全体をawaitしてslugを取得する★
-    const { slug } = await params;
+const { slug } = await params;
 
-    // データ取得
-    const post = await getPostBySlug(slug);
-    const imageUrl = post ? getFeaturedImageUrl(post) : null;
+// データ取得
+const post = await getPostBySlug(slug);
+const imageUrl = post ? getFeaturedImageUrl(post) : null;
 
-    if (!post) {
-        // 記事が見つからなかった場合は Next.js の 404 ページを表示
-        notFound();
-    }
+if (!post) {
+ // 記事が見つからなかった場合は Next.js の 404 ページを表示
+ notFound();
+}
 
-    // post.content.rendered が存在しない場合は空文字列を使用
-    const rawContent = post.content?.rendered || "";
+// post.content.rendered が存在しない場合は空文字列を使用
+const rawContent = post.content?.rendered || "";
 
-    // ★★★ リンク変換ロジックを適用 (awaitで非同期処理を待つ) ★★★
-    const processedContent = await processContentForAffiliateLinks(rawContent);
+// ★★★ リンク変換とOGPデータ取得を実行 ★★★
+const { processedHtml, ogpMap } = await processPostContent(rawContent);
+console.log(`[OGP MAP KEYS] Found ${Object.keys(ogpMap).length} URLs with OGP data.`);
+// ★★★ ---------------------------------- ★★★
 
 
-    return (
-        <main className={styles.postDetailMain}>
+// ★★★ HTMLパース時の要素置換ロジックを定義 ★★★
+const replaceLinkWithCard = (node: DOMNode) => {
+ if (node instanceof Element && node.name === 'a' && node.attribs.href) {
+ 
+ // ★修正 2: オリジナルURLまたは現在のhrefをキーとして使用し、ogpMapを検索 ★
+ // data-original-href属性があればそれを使う。なければ現在のhref (アフィリエイト化済み) を使う。
+ const keyHref = node.attribs['data-original-href'] || node.attribs.href;
+ const ogpData = ogpMap[keyHref]; 
+ // ★---------------------------------------------------------------------- ★
 
-            <Link href="/sale-blog" className={styles.backLink}>
-                &larr; 一覧に戻る
-            </Link>
 
-            <h1 className={styles.postTitle}
-                dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+ // ★修正 3: OGPデータが存在すれば、リンクタグの中身に関わらずLinkCardに置き換える ★
+ if (ogpData) {
+  return <LinkCard data={ogpData} />;
+ }
+ 
+ // OGPデータがない場合は、通常のリンクとして扱う
+ return null; 
+ }
+ // 他の要素はそのまま
+ return null; 
+};
 
-            <p className={styles.postMeta}>
-                公開日: {new Date(post.date).toLocaleDateString('ja-JP')}
-            </p>
+// 変換されたHTMLをReact要素にパース
+const parsedContent = parse(processedHtml, { replace: replaceLinkWithCard });
+// ★★★ ----------------------------------------- ★★★
 
-            {imageUrl && (
-                <div className={styles.featuredImageWrapper}>
-                    <Image
-                        src={imageUrl}
-                        alt={`セール情報: ${post.title.rendered} | bic-saving`}
-                        width={800}
-                        height={500}
-                        sizes="(max-width: 768px) 100vw, 800px"
-                        style={{ width: '100%', height: 'auto' }}
-                        priority
-                    />
-                </div>
-            )}
 
-            <div className={styles.postContent}>
-                {/* ★★★ 変換済みのコンテンツをレンダリング ★★★ */}
-                <div dangerouslySetInnerHTML={{ __html: processedContent }} />
-            </div>
+return (
+ <main className={styles.postDetailMain}>
 
-            <Link href="/sale-blog" className={styles.backLinkBottom}>
-                &larr; 一覧に戻る
-            </Link>
-        </main>
-    );
+ <Link href="/sale-blog" className={styles.backLink}>
+  &larr; 一覧に戻る
+ </Link>
+
+ <h1 className={styles.postTitle}
+  dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+
+ <p className={styles.postMeta}>
+  公開日: {new Date(post.date).toLocaleDateString('ja-JP')}
+ </p>
+
+ {imageUrl && (
+  <div className={styles.featuredImageWrapper}>
+  <Image
+   src={imageUrl}
+   alt={`セール情報: ${post.title.rendered} | bic-saving`}
+   width={800}
+   height={500}
+   sizes="(max-width: 768px) 100vw, 800px"
+   style={{ width: '100%', height: 'auto' }}
+   priority
+  />
+  </div>
+ )}
+
+ 
+ <div className={styles.postContent}>
+  {/* 修正: dangerouslySetInnerHTML を parse されたコンテンツに置き換え */}
+  {parsedContent}
+ </div>
+ 
+
+ <Link href="/sale-blog" className={styles.backLinkBottom}>
+  &larr; 一覧に戻る
+ </Link>
+ </main>
+);
 }

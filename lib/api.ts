@@ -14,14 +14,23 @@ interface MerchantData {
  */
 export async function resolveMerchantId(domain: string): Promise<MerchantData | null> {
     
-    // APIのベースURLを環境変数から取得（例: "https://api.bic-saving.com"）
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // 1. 環境変数からベースURLを取得し、ローカル環境のフォールバックを設定
+    const API_BASE_URL_CONFIGURED = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-    const endpoint = `${API_BASE_URL}/api/v1/affiliate/mid-resolve/`;
+    // 2. 実行環境に応じて BASE_HOST_URL を決定 (ホスト名のみ)
+    const BASE_HOST_URL = 
+        API_BASE_URL_CONFIGURED || 
+        (process.env.NODE_ENV === 'development' 
+            ? 'http://localhost:8003'           // ★ ローカル開発用 (8003) ★
+            : 'https://api.bic-saving.com');    // ★ 本番デプロイ用フォールバック ★
     
+    // 3. BASE_HOST_URL の末尾のスラッシュを除去してから /api/v1 を結合
+    const baseEndpoint = BASE_HOST_URL.replace(/\/$/, '');
+    const endpoint = `${baseEndpoint}/api/v1/affiliate/mid-resolve/`;
+
     // バックエンドで www.有無 の正規化を実装済み
     const url = `${endpoint}?domain=${encodeURIComponent(domain)}`;
-    console.log(`  エンドポイント URL: ${url}`); // ★★★ URL確認用 ★★★
+    console.log(`  エンドポイント URL: ${url}`); // ★★★ URL確認用 ★★★
 
     try {
         const response = await fetch(url, {

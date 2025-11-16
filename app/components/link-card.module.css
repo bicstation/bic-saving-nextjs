@@ -1,0 +1,142 @@
+/* /app/components/link-card.module.css (最終修正版 - URL色テスト変更) */
+
+.linkCardContainer {
+/* 外枠のスタイル */
+display: flex;
+flex-direction: row; /* 横並びのレイアウト (画像を左、コンテンツを右) */
+align-items: stretch;
+border: 1px solid #e0e0e0; /* 薄いグレーの境界線 */
+border-radius: 8px; /* 角を丸くする */
+overflow: hidden; /* 画像がはみ出さないように */
+margin: 20px 0;
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* 影をつけて浮き上がらせる */
+transition: box-shadow 0.2s ease-in-out;
+background-color: #ffffff; /* 背景色を白に */
+cursor: pointer;
+}
+
+.linkCardContainer:hover {
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* ホバー時に影を強調 */
+}
+
+.linkCardContent {
+/* テキストコンテンツ部分 */
+flex-grow: 1;
+padding: 15px 20px;
+display: flex;
+flex-direction: column;
+justify-content: space-between; 
+min-height: 120px; /* 最小高さを設定 */
+}
+
+.linkCardTitle {
+/* タイトル */
+font-size: 1.1em;
+font-weight: bold;
+color: #333333;
+line-height: 1.4;
+margin-bottom: 5px;
+/* 複数行を省略 */
+display: -webkit-box;
+-webkit-box-orient: vertical;
+-webkit-line-clamp: 2; 
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.linkCardDescription {
+/* 説明文 */
+font-size: 0.9em;
+color: #666666;
+line-height: 1.5;
+margin-bottom: 10px;
+/* 複数行を省略 */
+display: -webkit-box;
+-webkit-box-orient: vertical;
+-webkit-line-clamp: 2; 
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.linkCardFooter {
+/* 削除されたクラスですが、念のためdisplay: none */
+display: none;
+}
+
+.linkCardFavicon {
+/* ファビコン画像 */
+width: 16px;
+height: 16px;
+margin-right: 8px; /* スペースを確保 */
+border-radius: 2px;
+}
+
+.linkCardImageWrapper {
+/* 画像をラップする部分 */
+flex-shrink: 0; 
+width: 120px; 
+height: 120px; 
+overflow: hidden;
+
+/* ロゴとフッターを縦に並べるためのFlexbox設定 */
+display: flex;
+flex-direction: column; 
+justify-content: space-between; 
+}
+
+.linkCardImage {
+/* 実際の画像 - フッターのスペースを考慮し高さを調整 */
+width: 100%;
+height: 100px; /* 120px - 20px (フッター) */
+object-fit: cover; /* 画像をトリミングして領域全体を覆う */
+}
+
+/* ★★★ 修正: 画像の下部にファビコンとサイト名を入れるためのスタイル ★★★ */
+.linkCardFooterInImage {
+ display: flex;
+ align-items: center;
+ /* ★修正: 左寄せに固定し、表示を安定させる ★ */
+ justify-content: flex-start; 
+ font-size: 0.75em; 
+ color: #000000; /* ★テスト変更: 文字色を真っ黒 (#000000) に変更 ★ */
+ background-color: #f5f5f5; 
+ height: 20px; 
+ width: 100%;
+ padding: 0 8px; /* 左右パディングを8pxに設定 */
+}
+/* ★★★ ----------------------------------------------------- ★★★ */
+
+/* レスポンシブ対応 (モバイル向け) */
+@media (max-width: 600px) {
+.linkCardContainer {
+flex-direction: column-reverse; /* 画像を上に、コンテンツを下にする */
+}
+
+.linkCardImageWrapper {
+width: 100%;
+height: auto; /* モバイルでは高さを自動に */
+flex-direction: column; 
+}
+
+.linkCardImage {
+width: 100%;
+height: 150px; /* モバイルでは画像を少し大きく */
+}
+
+.linkCardFooterInImage {
+ height: 20px;
+ background-color: #f5f5f5;
+}
+
+.linkCardContent {
+padding: 12px 15px;
+}
+
+.linkCardTitle {
+font-size: 1.0em;
+}
+
+.linkCardDescription {
+font-size: 0.85em;
+}
+}
