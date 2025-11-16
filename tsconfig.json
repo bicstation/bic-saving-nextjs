@@ -12,13 +12,16 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    // ★ 修正1: 'bundler' から 'node' (または 'nodenext') に変更 ★
-    // 'bundler' は厳格すぎてローカル相対インポートでエラーになりやすい
     "moduleResolution": "node", 
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    // ★ 修正2: カスタム型定義ディレクトリを追加 ★
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types" 
+    ],
     "plugins": [
       {
         "name": "next"
@@ -37,7 +40,9 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "app/page.tsx_bak"
+    "app/page.tsx_bak",
+    // ★ 修正3: カスタム型定義ディレクトリをインクルード ★
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"
