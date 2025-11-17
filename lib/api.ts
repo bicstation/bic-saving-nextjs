@@ -60,22 +60,22 @@ return null;
 // 200 OKの場合、またはその他の成功ステータスの場合 (response.ok)
 if (response.ok) { 
 try {
- // responseTextからJSONへのパースを試みる
- const data = JSON.parse(responseText) as MerchantData;
- 
- // データが正しくパースされ、merchant_idが有効な文字列の場合のみ返す
- if (data && data.merchant_id && data.merchant_id.length > 0) {
- console.log(`[DEBUG: API SUCCESS] Domain: ${domain}, MID: ${data.merchant_id}`);
- return data;
- } else {
- // MIDが見つからなかった、または無効だったがStatus 200が返ってきた場合のログ
- console.log(`[DEBUG: API NO MID] Domain: ${domain}. Status 200 but MID is missing or invalid. Data:`, data);
- return null;
- }
+// responseTextからJSONへのパースを試みる
+const data = JSON.parse(responseText) as MerchantData;
+
+// データが正しくパースされ、merchant_idが有効な文字列の場合のみ返す
+if (data && data.merchant_id && data.merchant_id.length > 0) {
+console.log(`[DEBUG: API SUCCESS] Domain: ${domain}, MID: ${data.merchant_id}`);
+return data;
+} else {
+// MIDが見つからなかった、または無効だったがStatus 200が返ってきた場合のログ
+console.log(`[DEBUG: API NO MID] Domain: ${domain}. Status 200 but MID is missing or invalid. Data:`, data);
+return null;
+}
 } catch (jsonError) {
- // JSONパースに失敗した場合
- console.error(`API Error (JSON Parse Failed) for domain ${domain}: Status ${response.status}. Response: ${responseText}`);
- return null;
+// JSONパースに失敗した場合
+console.error(`API Error (JSON Parse Failed) for domain ${domain}: Status ${response.status}. Response: ${responseText}`);
+return null;
 }
 }
 
