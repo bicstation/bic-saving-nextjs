@@ -1,18 +1,19 @@
-// /lib/linkParser.ts (修正版)
+// /lib/linkParser.ts (修正完了版: TLS回避は環境変数に依存)
 
 import * as cheerio from 'cheerio';
-// ★追加: 文字コードの処理のためにaxiosとiconv-liteをインポート
-import axios from 'axios';
-import * as iconv from 'iconv-lite'; 
+// import axios from 'axios'; // 削除済み
+import * as iconv from 'iconv-lite';
+// import { Agent as HttpsAgent } from 'https'; // ★削除: fetchのagentオプション非対応のため★
 
 interface OGPData {
- title: string | null;
- description: string | null;
- imageUrl: string | null;
- siteUrl: string;
- // ★--- ファビコンURLを追加 ---★
- faviconUrl: string | null; 
+    title: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    siteUrl: string;
+    faviconUrl: string | null;
 }
+
+// ★★★ 削除: httpsAgentの定義と作成は削除（環境変数で代替） ★★★
 
 /**
  * バイナリデータからHTMLのエンコーディングを検出し、文字列にデコードする
@@ -50,66 +51,70 @@ function decodeHtml(buffer: Buffer): string {
 
 
 export async function fetchOGPData(url: string): Promise<OGPData | null> {
- const siteUrl = new URL(url).origin;
- let html: string;
+    const siteUrl = new URL(url).origin;
+    let html: string;
 
- try {
-  // ★修正 1: axiosを使用してバイナリデータ (arraybuffer) として取得 ★
-  const response = await axios.get(url, {
-   responseType: 'arraybuffer', // バイナリで取得
-   headers: {
-    'User-Agent': 'Bic-Saving Link Preview Bot',
-   },
-      // キャッシュを無効化
-   transformResponse: [(data) => data], // axiosにデコードさせず、バイナリのままにする
-  });
-    
-    if (response.status !== 200) {
-        console.error(`Failed to fetch URL: ${url}. Status: ${response.status}`);
+    try {
+        // ★修正 1: fetch API を使用してリクエストを送信 ★
+        // TLS検証無効化は、起動時の環境変数 NODE_TLS_REJECT_UNAUTHORIZED=0 に依存
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Bic-Saving Link Preview Bot',
+            },
+            // Next.jsのSSGビルド時に再生成を制御
+            next: { revalidate: 3600 }, 
+            // ★★★ 修正 2: agentオプションは削除し、エラーを解消 ★★★
+        });
+        
+        if (!response.ok) {
+            console.error(`Failed to fetch URL: ${url}. Status: ${response.status}`);
+            return null;
+        }
+
+        // ★修正 3: レスポンスをArrayBufferとして取得（バイナリデータ） ★
+        const arrayBuffer = await response.arrayBuffer(); 
+
+        // ★修正 4: ArrayBufferをBufferに変換し、文字コード検出ロジックでデコード ★
+        const buffer = Buffer.from(arrayBuffer);
+        html = decodeHtml(buffer);
+
+        const $ = cheerio.load(html);
+
+        // OGP情報を抽出
+        const title = $('meta[property="og:title"]').attr('content') || $('title').text() || null;
+        const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || null;
+        const imageUrl = $('meta[property="og:image"]').attr('content') || null;
+
+        // ★--- ファビコンURLを抽出 ---★
+        let faviconUrl: string | null = null;
+        
+        // 1. link rel="icon" や link rel="shortcut icon" などを探す
+        const iconLink = $('link[rel*="icon"]').first(); 
+        if (iconLink.length) {
+            let iconHref = iconLink.attr('href');
+            if (iconHref) {
+                // 相対パスの場合、絶対パスに変換する
+                faviconUrl = new URL(iconHref, siteUrl).href;
+            }
+        }
+        
+        // 2. 見つからなかった場合、デフォルトの favicon.ico を試す
+        if (!faviconUrl) {
+            // 多くのサイトで /favicon.ico に配置されているため、フォールバックとして試す
+            faviconUrl = `${siteUrl}/favicon.ico`;
+        }
+        // ★--------------------------------------★
+
+        return {
+            title,
+            description,
+            imageUrl,
+            siteUrl,
+            faviconUrl,
+        };
+    } catch (error) {
+        console.error(`Error parsing OGP data for ${url}:`, error);
         return null;
     }
-
-    // ★修正 2: 取得したバイナリデータを文字コード検出ロジックでデコード ★
-    const buffer = Buffer.from(response.data as ArrayBuffer);
-    html = decodeHtml(buffer);
-
-  const $ = cheerio.load(html);
-
-  // OGP情報を抽出
-  // 文字化けが解消されていれば、これらの値は正しくなる
-  const title = $('meta[property="og:title"]').attr('content') || $('title').text() || null;
-  const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || null;
-  const imageUrl = $('meta[property="og:image"]').attr('content') || null;
-
-  // ★--- ファビコンURLを抽出 ---★
-  let faviconUrl: string | null = null;
-  
-  // 1. link rel="icon" や link rel="shortcut icon" などを探す
-  const iconLink = $('link[rel*="icon"]').first(); 
-  if (iconLink.length) {
-    let iconHref = iconLink.attr('href');
-    if (iconHref) {
-      // 相対パスの場合、絶対パスに変換する
-      faviconUrl = new URL(iconHref, siteUrl).href;
-    }
-  }
-  
-  // 2. 見つからなかった場合、デフォルトの favicon.ico を試す
-  if (!faviconUrl) {
-    // 多くのサイトで /favicon.ico に配置されているため、フォールバックとして試す
-    faviconUrl = `${siteUrl}/favicon.ico`;
-  }
-  // ★--------------------------------------★
-
-  return {
-   title,
-   description,
-   imageUrl,
-   siteUrl,
-   faviconUrl, // ★追加
-  };
- } catch (error) {
-  console.error(`Error parsing OGP data for ${url}:`, error);
-  return null;
- }
 }

@@ -6,7 +6,8 @@ import Script from "next/script";
 
 // WordPress API連携に必要な関数と型をインポート
 import { getWPCategories, WPCategory, getWPTags, WPTag } from "@/lib/wordpress"; 
-import { getTopCategories, Category } from "@/lib/bic-saving";
+// ★修正: Category 型を EcCategory としてインポートし、名前の衝突を回避
+import { getTopCategories, Category as EcCategory } from "@/lib/bic-saving"; 
 
 // BlogSidebar コンポーネントをインポート
 import BlogSidebar from "../components/BlogSidebar"; 
@@ -20,7 +21,8 @@ children: React.ReactNode;
 
 export default async function SaleBlogLayout({ children }: SaleBlogLayoutProps) {
 let wpCategories: WPCategory[] = []; 
-let ecCategories: Category[] = []; 
+// ★修正: EcCategory 型を使用
+let ecCategories: EcCategory[] = []; 
 let wpTags: WPTag[] = []; 
 
 try {
@@ -31,13 +33,15 @@ getWPTags().catch((e) => { console.error("Error fetching WP tags:", e); return [
 ]);
 
 wpCategories = wpCategoryData;
-ecCategories = ecData;
+// ★修正: ecData を EcCategory 型として扱う
+ecCategories = ecData as EcCategory[];
 wpTags = wpTagData; 
 } catch (error) {
- console.error("Failed to fetch sidebar data unexpectedly:", error);
+console.error("Failed to fetch sidebar data unexpectedly:", error);
 }
 
 const safeWpCategories = Array.isArray(wpCategories) ? wpCategories : [];
+// ★修正: safeEcCategories の配列チェック
 const safeEcCategories = Array.isArray(ecCategories) ? ecCategories : [];
 const safeWpTags = Array.isArray(wpTags) ? wpTags : [];
 
@@ -46,37 +50,37 @@ return (
 <>
 {/* メインコンテンツとサイドバーをフレックスボックスで並べるコンテナ */}
 <div style={{ 
-    display: "flex", 
-    maxWidth: "1600px", 
-    margin: "0 auto", 
-    padding: "20px", 
-    gap: '40px' 
+    display: "flex", 
+    maxWidth: "1600px", 
+    margin: "0 auto", 
+    padding: "20px", 
+    gap: '40px' 
 }}>
- 
- {/* ★ 1. 左サイドバーエリア (管理メニューなど) - 完全に削除 ★ */}
+
+{/* ★ 1. 左サイドバーエリア (管理メニューなど) - 完全に削除 ★ */}
 
 
- {/* 2. メインコンテンツエリア (children) */}
- {/* 左サイドバーが削除されたため、paddingLeftは不要かもしれませんが、残します */}
- <div style={{ flexGrow: 1, minWidth: "0", paddingLeft: "0" }}>
- {children}
- </div>
+{/* 2. メインコンテンツエリア (children) */}
+{/* 左サイドバーが削除されたため、paddingLeftは不要かもしれませんが、残します */}
+<div style={{ flexGrow: 1, minWidth: "0", paddingLeft: "0" }}>
+{children}
+</div>
 
- {/* 3. 右サイドバーエリア (BlogSidebar: サイト全体メニュー、ブログカテゴリなど) */}
- <BlogSidebar 
- categories={safeWpCategories}
- ecCategories={safeEcCategories}
- tags={safeWpTags}
- style={{ flex: '0 0 280px', minWidth: '280px' }} 
- />
+{/* 3. 右サイドバーエリア (BlogSidebar: サイト全体メニュー、ブログカテゴリなど) */}
+<BlogSidebar 
+categories={safeWpCategories}
+ecCategories={safeEcCategories}
+tags={safeWpTags}
+style={{ flex: '0 0 280px', minWidth: '280px' }} 
+/>
 </div>
 
 {/* 楽天 Automate スクリプトを外部ファイルとしてロード */}
-<Script
- id="rakuten-automate"
- src="/js/rakuten-automate.js" 
- strategy="afterInteractive" 
-/>
+{/* <Script
+id="rakuten-automate"
+src="/js/rakuten-automate.js" 
+strategy="afterInteractive" 
+/> */}
 </>
 );
 }
