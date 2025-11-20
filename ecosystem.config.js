@@ -13,7 +13,16 @@ module.exports = {
         NODE_ENV: 'production',
         NEXT_PUBLIC_API_URL: 'https://api.bic-saving.com',
         NEXT_PUBLIC_API_BASE_URL: 'https://api.bic-saving.com',
-        RAKUTEN_AFFILIATE_ID: 'R9f1WByH5RE', // ★あなたのIDに置き換えてください★
+        
+        // 既存の楽天アフィリエイトID (変更なし)
+        RAKUTEN_AFFILIATE_ID: 'R9f1WByH5RE', 
+        
+        // ★★★ .bashrc から移植した LinkShare/Rakuten Marketing 変数 ★★★
+        LS_3750988_HOST: 'aftp.linksynergy.com',
+        LS_3750988_USER: 'rkp_3750988',
+        LS_3750988_PASS: 'u5NetPVZEAhABD7HuW2VRymP', 
+        LS_API_CLIENT_ID: 'ybRFc2fz6l9Wc1rDgywekOuMfBRzOyUO',
+        LS_API_CLIENT_SECRET: '2J72oAHLaIbSocWC2RaA2Wm3oZ7TuLhL',
       },
     },
   ],
