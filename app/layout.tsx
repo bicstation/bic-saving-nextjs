@@ -4,21 +4,22 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Suspense } from 'react'; 
 import "./globals.css"; 
-import Script from 'next/script'; // ★ next/script をインポート ★
+import Script from 'next/script'; 
 
 // コンポーネントのインポート
 import Header from './components/Header';
 import Footer from './components/Footer';
-import CategoryDataFetcher from './components/CategoryDataFetcher'; // ★ 新コンポーネントをインポート ★
+import CategoryDataFetcher from './components/CategoryDataFetcher'; 
 
-// データ取得関数のインポート (CategoryDataFetcherで使用するため残す)
-// import { getCategories, getAllMakers } from "@/lib/data"; 
+// ★★★ GAコンポーネントのインポートを追記 (components/GoogleAnalytics.tsxを別途作成した場合) ★★★
+import { GoogleAnalytics } from '@/components/GoogleAnalytics'; 
 
 const inter = Inter({ subsets: ["latin"] });
 
 // ★★★ 環境変数から値を取得し、定数として定義 ★★★
 const SITE_DOMAIN = process.env.NEXT_PUBLIC_PRODUCTION_URL || 'https://bic-saving.com';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'ECサイト';
+const GA_TRACKING_ID = process.env.NEXT_PUBLIC_GA_TRACKING_ID; // 👈 GAトラッキングIDを取得
 // ★★★ ----------------------------------------- ★★★
 
 // --- Viewport & Metadata ---
@@ -49,24 +50,42 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     
-    // ★★★ 削除: RootLayoutからデータ取得と safeECCategories の定義ロジックを削除 ★★★
-    // const [ecCategories, allMakers] = await Promise.all([...]);
-    // const safeECCategories = Array.isArray(ecCategories) ? ecCategories : [];
-    // const safeAllMakers = Array.isArray(allMakers) ? allMakers : [];
-    // ★★★ ---------------------------------------------------------------------- ★★★
-
-
     return (
         <html lang="ja">
-            {/* ★★★ Rakuten Automate スクリプトを <head> に相当する場所で読み込む ★★★ */}
-            {/* <Script
-                src="/public/rakuten_automate.js" // /public/rakuten_automate.js に配置した場合のパス
-                strategy="beforeInteractive"
-                id="rakuten-automate-script"
-            /> */}
+            {/* ★★★ GA4トラッキングスクリプトを <head> に相当する場所で読み込む ★★★ 
+            next/script の strategy="afterInteractive" を使用し、ページがインタラクティブになった後にロード
+            */}
+            {GA_TRACKING_ID && (
+                <>
+                    {/* 測定ID設定のためのdataLayer初期化スクリプト */}
+                    <Script
+                        strategy="afterInteractive" 
+                        src={`https://www.googletagmanager.com/gtag/js?id=${GA_TRACKING_ID}`}
+                    />
+                    
+                    {/* Google Analytics の設定と初期化 */}
+                    <Script
+                        id="google-analytics-script"
+                        strategy="afterInteractive"
+                        dangerouslySetInnerHTML={{
+                            __html: `
+                                window.dataLayer = window.dataLayer || [];
+                                function gtag(){dataLayer.push(arguments);}
+                                gtag('js', new Date());
+                                gtag('config', '${GA_TRACKING_ID}');
+                            `,
+                        }}
+                    />
+                </>
+            )}
             {/* ★★★ ------------------------------------------------------------------ ★★★ */}
             
             <body className={inter.className}>
+                
+                {/* ★★★ ルーティング変更時のトラッキングコンポーネントを配置 ★★★ */}
+                {GA_TRACKING_ID && (
+                    <GoogleAnalytics /> 
+                )}
                 
                 <Suspense fallback={<div>Loading Header...</div>}>
                     <Header /> 
@@ -75,13 +94,9 @@ export default async function RootLayout({
                 {/* ★★★ メインコンテンツのレイアウト ★★★ */}
                 <div className="container mx-auto p-4 page-layout"> 
                     
-                    {/* ★ サイドバー (左側) ★ 
-                       データ取得は CategoryDataFetcher 内で実行されます。
-                    */}
+                    {/* ★ サイドバー (左側) ★ */}
                     <aside className="sidebar"> 
-                        {/* ★★★ 修正箇所: CategoryDataFetcher に置き換え ★★★ */}
                         <CategoryDataFetcher />
-                        {/* ★★★ ------------------------------------- ★★★ */}
                     </aside>
                     
                     {/* ★ メインコンテンツ (右側 - 残りの幅) ★ */}
