@@ -82,9 +82,11 @@ export default async function RootLayout({
             
             <body className={inter.className}>
                 
-                {/* ★★★ ルーティング変更時のトラッキングコンポーネントを配置 ★★★ */}
+                {/* ★★★ ルーティング変更時のトラッキングコンポーネントを配置 (Suspenseで囲む) ★★★ */}
                 {GA_TRACKING_ID && (
-                    <GoogleAnalytics /> 
+                    <Suspense fallback={null}> 
+                        <GoogleAnalytics /> 
+                    </Suspense>
                 )}
                 
                 <Suspense fallback={<div>Loading Header...</div>}>
@@ -96,6 +98,7 @@ export default async function RootLayout({
                     
                     {/* ★ サイドバー (左側) ★ */}
                     <aside className="sidebar"> 
+                        {/* CategoryDataFetcher が useSearchParams を使っていなければ Suspense は不要 */}
                         <CategoryDataFetcher />
                     </aside>
                     
