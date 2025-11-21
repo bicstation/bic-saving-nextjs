@@ -1,4 +1,4 @@
-// /lib/data.ts (最終修正版 - APIスラッグマッピング追加)
+// /lib/data.ts (最終修正版 - APIスラッグマッピング追加 & product_url対応)
 
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
@@ -208,7 +208,9 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
                 makerSlug: currentMakerSlug,
                 makerName: getMakerName(currentMakerSlug), 
                 updated_at: apiProd.updated_at,
-            }
+                // ★修正: product_url を含める (型定義になくてもオブジェクトに含める)
+                product_url: (apiProd as any).product_url 
+            } as Product; // 型アサーションでProduct型として返す (page.tsx側で any キャストして使う想定)
         });
 
         // 2. フロントエンドでのフィルタリング処理 (query のみ)
@@ -327,6 +329,12 @@ async function getProductById(id: string | number): Promise<Product | null> {
             makerSlug: currentMakerSlug,
             makerName: getMakerName(currentMakerSlug),
             updated_at: apiProd.updated_at,
+            product_url: apiProd.product_url,
+            // ★修正: product_url を含める (データベースの product_url カラムに対応)
+            // 型定義(Product)にない場合は any キャストや拡張が必要ですが、
+            // ここではオブジェクトリテラルに追加し、戻り値として返します。
+            // (呼び出し側で (product as any).product_url としてアクセスするため)
+            // ...({ product_url: apiProd.product_url } as any) 
         };
 
         return product;

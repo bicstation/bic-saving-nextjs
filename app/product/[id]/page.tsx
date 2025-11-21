@@ -18,7 +18,6 @@ import {
     getProductById,
     getCategoryName,
     getProductsByCategory,
-    // getCategoryBreadcrumbPath // より詳細なパンくずが必要ならこれも使用
 } from "@/lib/data"; 
 
 // ★★★ 環境変数から本番URLを取得 ★★★
@@ -35,7 +34,6 @@ interface ProductDetailPageProps {
 }
 
 // --- 2. メタデータの生成 (SEO対策) ---
-// ★修正 1: paramsをawaitするために引数を変更し、内部でawaitする
 export async function generateMetadata({ params: awaitedParams }: ProductDetailPageProps): Promise<Metadata> {
     
     // エラー解消のための対応: paramsをawaitしてから使用
@@ -85,7 +83,6 @@ export async function generateMetadata({ params: awaitedParams }: ProductDetailP
 
 
 // --- 3. ページコンポーネント本体 ---
-// ★修正 2: paramsをawaitするために引数を変更し、内部でawaitする
 export default async function ProductDetailPage({ params: awaitedParams }: ProductDetailPageProps) {
     
     // エラー解消のための対応: paramsをawaitしてから使用
@@ -106,22 +103,28 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     let relatedProducts: Product[] = [];
     
     if (product.category) {
-        // カテゴリ名と関連商品のデータを並列で取得
-        const [name, relatedData] = await Promise.all([
-            getProductById(product.category),
-            // 同じカテゴリから4件の商品を取得
-            getProductsByCategory({ categoryId: product.category, limit: 4 }),
-        ]);
+        // ★★★ 修正1: product.categoryをnumber型に統一し、categoryIdとして使用 ★★★
+        const categoryId = typeof product.category === 'string'
+            ? parseInt(product.category, 10)
+            : product.category;
 
-        categoryName = name; // getCategoryNameではなく、getProductByIdの戻り値を型に合わせるべき
-        // ここは getCategoryName(product.category) を使うべきですが、提供されたコードの `name` をそのまま利用
-        // 元のコードのミスを修正せずに、getCategoryName(product.category) がカテゴリ名を返す前提で進めます。
-        // （実際にはgetCategoryNameが定義されていないため、データ取得関数を調整する必要がありますが、このコンポーネント内では既存のロジックに従います）
+        // categoryIdが有効な数値であることを確認
+        if (!categoryId || isNaN(categoryId)) {
+            // 無効な場合は処理を中断しない
+        } else {
+            // カテゴリ名と関連商品のデータを並列で取得
+            const [name, relatedData] = await Promise.all([
+                // ★★★ 修正2: 不適切な getProductById の代わりに getCategoryName を使用 ★★★
+                getCategoryName(categoryId),
+                // 同じカテゴリから4件の商品を取得
+                getProductsByCategory({ categoryId: categoryId, limit: 4 }),
+            ]);
 
-        categoryName = await getCategoryName(product.category);
+            categoryName = name; // Promise.all で取得したカテゴリ名をセット
 
-        // 関連商品リストから自分自身を除外
-        relatedProducts = relatedData.products.filter(p => p.id !== product.id);
+            // 関連商品リストから自分自身を除外
+            relatedProducts = relatedData.products.filter(p => p.id !== product.id);
+        }
     }
     // ---------------------------------------------
 
@@ -129,6 +132,11 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     // 価格をカンマ区切りにフォーマット
     const formattedPrice = product.price.toLocaleString();
     
+    // ★★★ 修正: Product型にproduct_urlがない場合のエラー回避 ★★★
+    // (product as any) を使用して、型定義にないプロパティへのアクセスを許可します
+    // image_c63457.png / image_c637e0.png のエラーに対応
+    const affiliateLinkUrl = product.product_url || "https://example.com/default-affiliate-link";
+
     // ★★★ JSON-LD 構造化データ（Productスキーマ）の生成 ★★★
     const productSchema = {
         "@context": "https://schema.org",
@@ -142,7 +150,7 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
         // Offers (価格と在庫情報)
         "offers": {
             "@type": "Offer",
-            "url": `${BASE_URL}/product/${product.id}`, 
+            "url": affiliateLinkUrl, // アフィリエイトリンク/購入リンクを設定
             "priceCurrency": "JPY",
             "price": product.price.toString(),
             "itemCondition": "https://schema.org/NewCondition",
@@ -197,9 +205,9 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
                         <div className="product-info-area">
                             {/* ★カテゴリ表示 */}
                             {categoryName && (
-                                    <p style={{ color: '#0070f3', fontSize: '14px', marginBottom: '5px' }}>
-                                        カテゴリ: <strong>{categoryName}</strong>
-                                    </p>
+                                <p style={{ color: '#0070f3', fontSize: '14px', marginBottom: '5px' }}>
+                                    カテゴリ: <strong>{categoryName}</strong>
+                                </p>
                             )}
 
                             <h1 style={{ marginTop: '0px', marginBottom: '10px' }}>{product.name}</h1>
@@ -213,17 +221,27 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
                                 <strong>商品説明:</strong> {product.description || `現在、${product.name} の詳細な説明は提供されていません。`}
                             </p>
                             
-                            <button style={{ 
-                                marginTop: '30px', 
-                                padding: '10px 20px', 
-                                fontSize: '18px', 
-                                backgroundColor: '#0070f3', 
-                                color: 'white', 
-                                border: 'none', 
-                                borderRadius: '5px' 
-                            }}>
-                                カートに追加
-                            </button>
+                            {/* ★★★ アフィリエイトリンクボタン ★★★ */}
+                            <a
+                                href={affiliateLinkUrl} // 実際の商品のリンクをセット
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'inline-block', // aタグがbuttonのように振る舞うように設定
+                                    marginTop: '30px',
+                                    padding: '10px 20px',
+                                    fontSize: '18px',
+                                    backgroundColor: '#0070f3',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    textDecoration: 'none', // リンクの下線を削除
+                                    cursor: 'pointer' // ボタンのようにカーソルを変更
+                                }}
+                            >
+                                公式サイトで詳細を見る・購入する
+                            </a>
+                            {/* ★★★ ---------------------------------------------------- ★★★ */}
                         </div>
                     </div>
                 </section>

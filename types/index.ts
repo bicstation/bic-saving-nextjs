@@ -11,7 +11,9 @@ export interface ApiProduct {
   description?: string | null;
   category?: number | null; 
   final_category_id?: number | null; 
-  updated_at?: string; 
+  updated_at?: string;
+  // ★修正: APIレスポンスに含まれるアフィリエイトURL
+  product_url?: string | null; 
   [key: string]: any;
 }
 
@@ -34,6 +36,9 @@ export interface Product {
   
   // Sitemap, RSS対応のため updated_at を追加
   updated_at?: string; 
+
+  // ★修正: アフィリエイトリンク用URL (DBのカラム名に合わせる)
+  product_url?: string | null;
 }
 
 // ProductCardが受け取るPropsの型
