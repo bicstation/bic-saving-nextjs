@@ -1,4 +1,4 @@
-// /app/product/[id]/page.tsx (商品個別ページ - SEO対策 最終完全版)
+// /app/product/[id]/page.tsx (商品個別ページ - SEO対策 最終完全版 + 0円非表示)
 
 // App Router の Server Component として強制的に動的レンダリングを有効化
 export const dynamic = "force-dynamic";
@@ -49,10 +49,15 @@ export async function generateMetadata({ params: awaitedParams }: ProductDetailP
         };
     }
     
+    // 価格が0の場合は表示しないため、descriptionにも含めないように調整
+    const priceText = product.price && product.price !== 0 
+        ? `【価格: ¥${product.price.toLocaleString()}】` 
+        : '';
+        
     // SEO用ディスクリプションの生成
     const descriptionText = product.description 
-        ? `${product.description.substring(0, 100)}...【価格: ¥${product.price.toLocaleString()}】`
-        : `${product.name} の詳細ページです。お得な価格で提供中。`;
+        ? `${product.description.substring(0, 100)}...${priceText}`
+        : `${product.name} の詳細ページです。${priceText}お得な価格で提供中。`;
     
     // Canonical URLを決定
     const canonicalUrl = `${BASE_URL}/product/${product.id}`; 
@@ -90,9 +95,7 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     
     const productId = params.id; 
 
-    // ★修正: data.ts の getProductById を使用してデータ取得
     // 型安全ではないプロパティ (original_price, product_url) にアクセスするため、一時的に any 型として扱う
-    // const product: (Product & { original_price?: string }) | null = await getProductById(productId);
     const product = (await getProductById(productId)) as Product | (any & { product_url: string }) | null;
 
     // 3. 商品が存在しない場合の処理 
@@ -116,7 +119,7 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
         } else {
             // カテゴリ名と関連商品のデータを並列で取得
             const [name, relatedData] = await Promise.all([
-                // ★★★ 修正2: 不適切な getProductById の代わりに getCategoryName を使用 ★★★
+                // ★★★ 修正2: getCategoryName を使用 ★★★
                 getCategoryName(categoryId),
                 // 同じカテゴリから4件の商品を取得
                 getProductsByCategory({ categoryId: categoryId, limit: 4 }),
@@ -131,20 +134,27 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     // ---------------------------------------------
 
     // 価格をカンマ区切りにフォーマット
-    const formattedPrice = product.price.toLocaleString();
+    // ★★★ 修正1: 価格が0円の場合は表示しない (nullをセット) ★★★
+    const formattedPrice = product.price && product.price !== 0 
+        ? product.price.toLocaleString() 
+        : null;
     
     // ★★★ original_price の処理 ★★★
-    const originalPrice = product.original_price ? parseFloat(product.original_price) : null;
+    // original_priceが存在し、かつ0円でない場合のみparseFloatを適用
+    const originalPriceValue = (product.original_price && product.original_price !== 0) 
+        ? parseFloat(product.original_price.toString()) 
+        : null;
+        
     let formattedOriginalPrice: string | null = null;
     
     // original_price が存在し、かつ現在の price よりも高い場合のみ表示
-    const shouldShowOriginalPrice = originalPrice && originalPrice > parseFloat(product.price.toString());
+    const shouldShowOriginalPrice = originalPriceValue && formattedPrice && originalPriceValue > product.price;
 
     if (shouldShowOriginalPrice) {
-        // カンマ区切りにフォーマット
-        formattedOriginalPrice = originalPrice.toLocaleString(undefined, { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
+        // 小数点以下の表示を考慮してフォーマット
+        formattedOriginalPrice = originalPriceValue.toLocaleString(undefined, { 
+            minimumFractionDigits: 0, // 必要に応じて調整
+            maximumFractionDigits: 2 // 必要に応じて調整
         });
     }
     // ★★★ ------------------------- ★★★
@@ -173,7 +183,8 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
             "@type": "Offer",
             "url": affiliateLinkUrl, // アフィリエイトリンク/購入リンクを設定
             "priceCurrency": "JPY",
-            "price": product.price.toString(),
+            // ★★★ 修正2: 価格がnullでない場合のみoffersにpriceを設定 ★★★
+            ...(formattedPrice ? { "price": product.price.toString() } : {}),
             "itemCondition": "https://schema.org/NewCondition",
             "availability": "https://schema.org/InStock" // 在庫状況に応じて変更
         }
@@ -184,7 +195,6 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     return (
         <>
             {/* ★★★ JSON-LD 構造化データの挿入 ★★★ */}
-            {/* Server Componentでは、scriptタグを直接レンダリング可能 */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
@@ -241,13 +251,21 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
                             )}
                             {/* ★★★ ------------------------------------ ★★★ */}
                             
-                            <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'red', marginTop: '5px' }}>
-                                価格: ¥{formattedPrice}
-                            </p>
+                            {/* ★★★ 修正3: formattedPrice が null でない場合のみ価格を表示 ★★★ */}
+                            {formattedPrice ? (
+                                <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'red', marginTop: '5px' }}>
+                                    価格: ¥{formattedPrice}
+                                </p>
+                            ) : (
+                                <p style={{ fontSize: '20px', color: '#999', marginTop: '5px' }}>
+                                    価格情報なし
+                                </p>
+                            )}
+                            {/* ★★★ ----------------------------------------------- ★★★ */}
                             
                             <p style={{ marginTop: '10px' }}><strong>商品ID:</strong> {product.id}</p>
                             
-                            {/* ★★★ 修正箇所: dangerouslySetInnerHTML を使って改行付きのHTMLをレンダリング ★★★ */}
+                            {/* ★★★ 句読点による改行付きのHTMLをレンダリング ★★★ */}
                             <p
                                 style={{ marginTop: '20px', lineHeight: '1.6' }}
                                 dangerouslySetInnerHTML={{ __html: `<strong>商品説明:</strong> ${formattedDescription}` }}
