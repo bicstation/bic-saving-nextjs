@@ -91,7 +91,9 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     const productId = params.id; 
 
     // ★修正: data.ts の getProductById を使用してデータ取得
-    const product: Product | null = await getProductById(productId);
+    // 型安全ではないプロパティ (original_price, product_url) にアクセスするため、一時的に any 型として扱う
+    // const product: (Product & { original_price?: string }) | null = await getProductById(productId);
+    const product = (await getProductById(productId)) as Product | (any & { product_url: string }) | null;
 
     // 3. 商品が存在しない場合の処理 
     if (!product) {
@@ -128,14 +130,33 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
     }
     // ---------------------------------------------
 
-
     // 価格をカンマ区切りにフォーマット
     const formattedPrice = product.price.toLocaleString();
     
+    // ★★★ original_price の処理 ★★★
+    const originalPrice = product.original_price ? parseFloat(product.original_price) : null;
+    let formattedOriginalPrice: string | null = null;
+    
+    // original_price が存在し、かつ現在の price よりも高い場合のみ表示
+    const shouldShowOriginalPrice = originalPrice && originalPrice > parseFloat(product.price.toString());
+
+    if (shouldShowOriginalPrice) {
+        // カンマ区切りにフォーマット
+        formattedOriginalPrice = originalPrice.toLocaleString(undefined, { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+        });
+    }
+    // ★★★ ------------------------- ★★★
+
     // ★★★ 修正: Product型にproduct_urlがない場合のエラー回避 ★★★
-    // (product as any) を使用して、型定義にないプロパティへのアクセスを許可します
-    // image_c63457.png / image_c637e0.png のエラーに対応
-    const affiliateLinkUrl = product.product_url || "https://example.com/default-affiliate-link";
+    const affiliateLinkUrl = (product as any).product_url || "https://example.com/default-affiliate-link";
+
+    // ★★★ 句読点による改行処理 (JSXの外で実行) ★★★
+    const descriptionText = product.description || `現在、${product.name} の詳細な説明は提供されていません。`;
+    // 正規表現で句読点の後ろに <br /> を挿入
+    const formattedDescription = descriptionText.replace(/(、|。)/g, '$1<br />');
+    // ★★★ ------------------------------------------ ★★★
 
     // ★★★ JSON-LD 構造化データ（Productスキーマ）の生成 ★★★
     const productSchema = {
@@ -212,14 +233,26 @@ export default async function ProductDetailPage({ params: awaitedParams }: Produ
 
                             <h1 style={{ marginTop: '0px', marginBottom: '10px' }}>{product.name}</h1>
                             
-                            <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'red' }}>
+                            {/* ★★★ original_price の表示箇所 ★★★ */}
+                            {shouldShowOriginalPrice && formattedOriginalPrice && (
+                                <p style={{ fontSize: '16px', color: '#999', textDecoration: 'line-through', marginBottom: '0' }}>
+                                    定価: ¥{formattedOriginalPrice}
+                                </p>
+                            )}
+                            {/* ★★★ ------------------------------------ ★★★ */}
+                            
+                            <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'red', marginTop: '5px' }}>
                                 価格: ¥{formattedPrice}
                             </p>
+                            
                             <p style={{ marginTop: '10px' }}><strong>商品ID:</strong> {product.id}</p>
                             
-                            <p style={{ marginTop: '20px', lineHeight: '1.6' }}>
-                                <strong>商品説明:</strong> {product.description || `現在、${product.name} の詳細な説明は提供されていません。`}
-                            </p>
+                            {/* ★★★ 修正箇所: dangerouslySetInnerHTML を使って改行付きのHTMLをレンダリング ★★★ */}
+                            <p
+                                style={{ marginTop: '20px', lineHeight: '1.6' }}
+                                dangerouslySetInnerHTML={{ __html: `<strong>商品説明:</strong> ${formattedDescription}` }}
+                            />
+                            {/* ★★★ ---------------------------------------------------------------------- ★★★ */}
                             
                             {/* ★★★ アフィリエイトリンクボタン ★★★ */}
                             <a

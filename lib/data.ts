@@ -1,4 +1,4 @@
-// /lib/data.ts (最終修正版 - APIスラッグマッピング追加 & product_url対応)
+// /lib/data.ts (最終修正版 - APIスラッグマッピング追加 & product_url/original_price対応)
 
 import { Category, ProductData, Product, ApiProduct, Maker } from "@/types/index";
 
@@ -10,8 +10,8 @@ const API_BASE_URL_CONFIGURED = process.env.NEXT_PUBLIC_API_BASE_URL;
 const BASE_HOST_URL = 
     API_BASE_URL_CONFIGURED || 
     (process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:8003'           // ローカル開発用 (8003を使用)
-        : 'https://api.bic-saving.com');    // 本番デプロイ用フォールバック
+        ? 'http://localhost:8003'             // ローカル開発用 (8003を使用)
+        : 'https://api.bic-saving.com');      // 本番デプロイ用フォールバック
 
 // 2. APIのバージョン付きベースURLを定義
 // BASE_HOST_URL の末尾のスラッシュを安全に除去してから /api/v1 を追加する
@@ -193,6 +193,7 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
         const data = await res.json();
         
         // 1. ApiProduct を Product にマッピング
+        // ApiProduct に original_price があることを想定
         const apiProducts = (data.results || []) as ApiProduct[];
         let allProducts: Product[] = apiProducts.map(apiProd => {
             
@@ -202,13 +203,16 @@ async function getProducts({ page = 1, limit = 12, categoryId = null, query = nu
                 id: apiProd.id,
                 name: apiProd.product_name, 
                 price: parseFloat(apiProd.price.toString()), 
+                // ★★★ 修正箇所: original_price のマッピングを追加 ★★★
+                original_price: (apiProd as any).original_price ? parseFloat((apiProd as any).original_price.toString()) : undefined,
+                // ★★★ ------------------------------------------ ★★★
                 image: apiProd.image_url, 
                 description: apiProd.description || undefined,
                 category: apiProd.category,
                 makerSlug: currentMakerSlug,
                 makerName: getMakerName(currentMakerSlug), 
                 updated_at: apiProd.updated_at,
-                // ★修正: product_url を含める (型定義になくてもオブジェクトに含める)
+                // ★修正: product_url を含める
                 product_url: (apiProd as any).product_url 
             } as Product; // 型アサーションでProduct型として返す (page.tsx側で any キャストして使う想定)
         });
@@ -316,6 +320,16 @@ async function getProductById(id: string | number): Promise<Product | null> {
         }
         
         const apiProd: any = await res.json(); 
+
+        // 🚨🚨🚨【デバッグ用ログ】ここを確認してください！🚨🚨🚨
+        console.log("=============== API DEBUG ===============");
+        console.log("Product ID:", id);
+        console.log("API Response Keys:", Object.keys(apiProd)); // どんな項目が来ているかキー一覧を表示
+        console.log("product_url Value:", apiProd.product_url);    // 値が入っているか確認
+        console.log("original_price Value:", apiProd.original_price); // ★★★ original_price の値を確認 ★★★
+        console.log("=========================================");
+
+
         const currentMakerSlug = apiProd.maker_slug || 'unknown';
 
         // マッピング処理を適用 (ApiProduct -> Product)
@@ -323,6 +337,9 @@ async function getProductById(id: string | number): Promise<Product | null> {
             id: apiProd.id,
             name: apiProd.product_name, 
             price: parseFloat(apiProd.price.toString()), 
+            // ★★★ 修正箇所: original_price のマッピングを追加 ★★★
+            original_price: apiProd.original_price ? parseFloat(apiProd.original_price.toString()) : undefined,
+            // ★★★ ------------------------------------------ ★★★
             image: apiProd.image_url, 
             description: apiProd.description || undefined,
             category: apiProd.final_category_id || apiProd.category,
@@ -330,11 +347,6 @@ async function getProductById(id: string | number): Promise<Product | null> {
             makerName: getMakerName(currentMakerSlug),
             updated_at: apiProd.updated_at,
             product_url: apiProd.product_url,
-            // ★修正: product_url を含める (データベースの product_url カラムに対応)
-            // 型定義(Product)にない場合は any キャストや拡張が必要ですが、
-            // ここではオブジェクトリテラルに追加し、戻り値として返します。
-            // (呼び出し側で (product as any).product_url としてアクセスするため)
-            // ...({ product_url: apiProd.product_url } as any) 
         };
 
         return product;

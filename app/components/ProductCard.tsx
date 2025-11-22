@@ -1,4 +1,4 @@
-// /app/components/ProductCard.tsx (最終確定修正版)
+// /app/components/ProductCard.tsx (最終確定修正版 + original_price対応)
 
 import React from 'react';
 import Link from 'next/link'; 
@@ -6,6 +6,13 @@ import { Product, ProductCardProps } from "@/types/index";
 
 // Component
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+    
+    // original_priceが存在し、かつ現在の価格(price)よりも大きい場合にtrue
+    const isDiscounted = 
+        product.original_price && 
+        product.price && 
+        product.original_price > product.price;
+
     return (
         // ★★★ 修正箇所 1: ルート要素に w-full と max-w-full を適用 ★★★
         <div className="product-card w-full max-w-full">
@@ -22,7 +29,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     {/* 1. 画像セクション */}
                     <div className="product-image-wrapper">
                         <img 
-                            src={product.image || product.image_url || '/placeholder.png'} 
+                            // product.image_url は ApiProduct 側で取得し、Product 型の image にマッピングされているはず
+                            src={product.image || '/placeholder.png'} 
                             alt={product.name} 
                             className="product-image" 
                         />
@@ -35,9 +43,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     
                     {/* 3. 価格・情報セクション */}
                     <div className="mt-auto">
-                        <p className="product-price font-bold">
+                        
+                        {/* ★★★ 修正箇所 3: original_price の表示ロジックを追加 ★★★ */}
+                        {isDiscounted && product.original_price && (
+                            <p className="product-original-price text-sm text-gray-500 line-through">
+                                {product.original_price.toLocaleString()}円
+                            </p>
+                        )}
+                        {/* ★★★ ------------------------------------------ ★★★ */}
+                        
+                        <p className={`product-price font-bold ${isDiscounted ? 'text-red-600 text-xl' : 'text-lg'}`}>
                             {product.price ? product.price.toLocaleString() : 'N/A'}円
                         </p>
+                        
                         <p className="product-seller-info text-xs text-gray-500">
                             {product.category ? `カテゴリ: ${product.category}` : "詳細情報あり"}
                         </p>
